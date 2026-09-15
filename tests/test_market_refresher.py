@@ -360,9 +360,84 @@ def test_in_stock_only_filtering(seed_inventory, test_db):
         assert job.total_items == 2
         assert job.processed_items == 2
 
+        # Assert only in-stock MTG cards are queried
+        queried_ids = [call.args[0] for call in mock_provider.fetch_market_prices.call_args_list]
+        assert set(queried_ids) == {"mtg-sol-ring", "mtg-counterspell"}
+        assert "mtg-black-lotus" not in queried_ids
+
     session = session_factory()
     black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
     assert black_lotus.market_price == 5000.00  # Untouched
+    session.close()
+
+
+def test_only_in_stock_mtg_cards_are_queried(seed_inventory, test_db):
+    """
+    EXPLICIT REQUIREMENT:
+    Assert only in-stock MTG cards are queried when running with game='mtg' and in_stock_only=True.
+    Verifies that:
+    1. Provider is strictly called only for cards with game='mtg' and quantity > 0.
+    2. Out-of-stock MTG cards (quantity == 0) are NOT queried.
+    3. Pokémon cards (even if in-stock) are NOT queried.
+    """
+    _, session_factory = test_db
+    service = MarketRefresherService()
+
+    queried_card_ids = []
+
+    def mock_fetch(card_id):
+        queried_card_ids.append(card_id)
+        return {"market": 15.00}
+
+    mock_provider = MagicMock()
+    mock_provider.fetch_market_prices.side_effect = mock_fetch
+
+    with patch("services.market_refresher.get_provider") as mock_gp:
+        # If MTG, return mock provider; if Pokémon, fail immediately
+        mock_gp.side_effect = lambda g: mock_provider if g == "mtg" else pytest.fail(f"Non-MTG provider requested for game: {g}")
+
+        job = PriceRefreshJob(job_id="test-in-stock-only", game="mtg", in_stock_only=True, max_age_days=0)
+        service._run_refresh(
+            job=job,
+            in_stock_only=True,
+            max_age_days=0,
+            auto_adjust_sell_price=False,
+            margin_multiplier=1.0,
+            session_factory=session_factory
+        )
+
+        assert job.status == "completed"
+
+    # ASSERT ONLY IN-STOCK MTG CARDS ARE QUERIED:
+    assert set(queried_card_ids) == {"mtg-sol-ring", "mtg-counterspell"}, (
+        f"Expected only in-stock MTG cards to be queried, got: {queried_card_ids}"
+    )
+    assert len(queried_card_ids) == 2
+
+    # Specifically assert out-of-stock MTG card was NOT queried
+    assert "mtg-black-lotus" not in queried_card_ids
+
+    # Specifically assert in-stock Pokémon cards were NOT queried
+    assert "swsh3-136" not in queried_card_ids
+    assert "base1-4" not in queried_card_ids
+
+    # Verify in database:
+    session = session_factory()
+    # In-stock MTG cards were updated
+    sol_ring = session.query(SinglesInventory).filter_by(provider_card_id="mtg-sol-ring").first()
+    counterspell = session.query(SinglesInventory).filter_by(provider_card_id="mtg-counterspell").first()
+    assert sol_ring.market_price == 15.00
+    assert counterspell.market_price == 15.00
+
+    # Out-of-stock MTG card untouched
+    black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
+    assert black_lotus.market_price == 5000.00
+
+    # Pokémon cards untouched
+    pikachu = session.query(SinglesInventory).filter_by(provider_card_id="swsh3-136").first()
+    charizard = session.query(SinglesInventory).filter_by(provider_card_id="base1-4").first()
+    assert pikachu.market_price == 20.00
+    assert charizard.market_price == 100.00
     session.close()
 
 
