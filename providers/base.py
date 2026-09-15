@@ -118,7 +118,7 @@ class BaseTCGProvider(ABC):
             time.sleep(self.rate_limit_delay - elapsed)
         self._last_request_time = time.time()
 
-    def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[Any]:
         """
         Executes a rate-limited GET request with automatic retry on upstream 429 throttling.
         """

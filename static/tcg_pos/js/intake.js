@@ -19,6 +19,7 @@
   const clearSearchBtn = document.getElementById("search-clear-btn");
   const dropdown = document.getElementById("autocomplete-dropdown");
   const searchSpinner = document.getElementById("search-spinner");
+  const intakeGameSelect = document.getElementById("intake-game-select");
 
   // Inspector Elements
   const inspectorEmpty = document.getElementById("inspector-empty");
@@ -26,15 +27,22 @@
   const cardArtImg = document.getElementById("card-art-img");
   const cardTitle = document.getElementById("card-title");
   const cardTypeLine = document.getElementById("card-type-line");
+  const badgeGame = document.getElementById("badge-game");
   const badgeRarity = document.getElementById("badge-rarity");
   const badgeSet = document.getElementById("badge-set");
   const badgeCollector = document.getElementById("badge-collector");
+  const badgeHp = document.getElementById("badge-hp");
+  const badgeStage = document.getElementById("badge-stage");
+  const badgeType = document.getElementById("badge-type");
 
   // Benchmarks
   const valMarket = document.getElementById("val-market");
   const valLow = document.getElementById("val-low");
   const valFoil = document.getElementById("val-foil");
   const valEtched = document.getElementById("val-etched");
+  const labelFoil = document.getElementById("label-foil");
+  const labelEtched = document.getElementById("label-etched");
+  const finishBtnGroup = document.getElementById("finish-btn-group");
 
   // Calculator Displays
   const offerCashVal = document.getElementById("offer-cash-val");
@@ -187,7 +195,8 @@
 
     try {
       if (searchSpinner) searchSpinner.style.display = "inline-block";
-      const resp = await fetch(`/tcg/api/search?q=${encodeURIComponent(query)}`);
+      const game = intakeGameSelect ? intakeGameSelect.value : "mtg";
+      const resp = await fetch(`/tcg/api/search?q=${encodeURIComponent(query)}&game=${encodeURIComponent(game)}`);
       const data = await resp.json();
 
       if (searchSpinner) searchSpinner.style.display = "none";
@@ -233,6 +242,33 @@
     dropdown.style.display = "block";
   }
 
+  function updateFinishOptions(game) {
+    if (!finishBtnGroup) return;
+    const isPokemon = (game || "").toLowerCase() === "pokemon";
+    if (isPokemon) {
+      finishBtnGroup.innerHTML = `
+        <button type="button" class="btn-matrix btn-finish active" data-finish="nonfoil">Nonfoil (Regular)</button>
+        <button type="button" class="btn-matrix btn-finish" data-finish="holo">Holo (Holofoil)</button>
+        <button type="button" class="btn-matrix btn-finish" data-finish="reverse_holo">Reverse Holo</button>
+        <button type="button" class="btn-matrix btn-finish" data-finish="first_edition">1st Edition</button>
+      `;
+      if (labelFoil) labelFoil.textContent = "Holo / Reverse";
+      if (labelEtched) labelEtched.textContent = "Specialty / 1st Ed";
+    } else {
+      finishBtnGroup.innerHTML = `
+        <button type="button" class="btn-matrix btn-finish active" data-finish="nonfoil">Nonfoil (Regular)</button>
+        <button type="button" class="btn-matrix btn-finish" data-finish="foil">Foil / Holo</button>
+        <button type="button" class="btn-matrix btn-finish" data-finish="etched">Etched / Specialty</button>
+      `;
+      if (labelFoil) labelFoil.textContent = "Foil / Holo";
+      if (labelEtched) labelEtched.textContent = "Etched / Specialty";
+    }
+    finishBtnGroup.querySelectorAll(".btn-finish").forEach((btn) => {
+      btn.addEventListener("click", () => setFinish(btn.dataset.finish));
+    });
+    setFinish("nonfoil");
+  }
+
   function selectCard(card) {
     activeCard = card;
     dropdown.style.display = "none";
@@ -244,9 +280,57 @@
     inspectorEmpty.style.display = "none";
     inspectorContent.style.display = "block";
 
+    // Sync game selector & finish buttons
+    const cardGame = (card.game || (intakeGameSelect ? intakeGameSelect.value : "mtg")).toLowerCase();
+    if (intakeGameSelect && intakeGameSelect.value !== cardGame) {
+      intakeGameSelect.value = cardGame;
+      updateFinishOptions(cardGame);
+    }
+
     // Populate metadata
     cardTitle.textContent = card.name;
-    cardTypeLine.textContent = (card.api_metadata && card.api_metadata.type_line) || "Card";
+    const meta = card.api_metadata || {};
+
+    if (badgeGame) {
+      badgeGame.textContent = cardGame.toUpperCase();
+      badgeGame.style.background = cardGame === "pokemon" ? "#ef4444" : "#6366f1";
+    }
+
+    // Display Pokémon-specific attributes vs standard MTG
+    if (cardGame === "pokemon") {
+      if (meta.hp && badgeHp) {
+        badgeHp.textContent = `${meta.hp} HP`;
+        badgeHp.style.display = "inline-block";
+      } else if (badgeHp) {
+        badgeHp.style.display = "none";
+      }
+
+      if (meta.stage && badgeStage) {
+        badgeStage.textContent = meta.stage;
+        badgeStage.style.display = "inline-block";
+      } else if (badgeStage) {
+        badgeStage.style.display = "none";
+      }
+
+      if (meta.types && meta.types.length > 0 && badgeType) {
+        badgeType.textContent = meta.types.join(" / ");
+        badgeType.style.display = "inline-block";
+      } else if (badgeType) {
+        badgeType.style.display = "none";
+      }
+
+      if (cardTypeLine) {
+        cardTypeLine.textContent = (meta.stage ? meta.stage + " " : "") + (meta.category || "Pokémon");
+      }
+    } else {
+      if (badgeHp) badgeHp.style.display = "none";
+      if (badgeStage) badgeStage.style.display = "none";
+      if (badgeType) badgeType.style.display = "none";
+      if (cardTypeLine) {
+        cardTypeLine.textContent = meta.type_line || "Card";
+      }
+    }
+
     cardArtImg.src = card.image_uri || "";
     badgeRarity.textContent = card.rarity;
     badgeRarity.className = `badge badge-${card.rarity.toLowerCase()}`;
@@ -305,10 +389,10 @@
 
   function resolveApplicablePrice() {
     if (!activeCard) return 0.0;
-    if (currentFinish === "foil" || currentFinish === "reverse_holo") {
+    if (currentFinish === "foil" || currentFinish === "reverse_holo" || currentFinish === "holo") {
       return activeCard.foil_price || activeCard.market_price || 0.0;
     }
-    if (currentFinish === "etched") {
+    if (currentFinish === "etched" || currentFinish === "first_edition") {
       return activeCard.etched_price || activeCard.foil_price || activeCard.market_price || 0.0;
     }
     return activeCard.market_price || 0.0;
@@ -561,6 +645,21 @@
   // --- Event Listeners & Hotkeys ---
 
   document.addEventListener("DOMContentLoaded", () => {
+    // Game select change listener
+    if (intakeGameSelect) {
+      intakeGameSelect.addEventListener("change", (e) => {
+        const game = e.target.value;
+        updateFinishOptions(game);
+        if (searchInput) {
+          searchInput.placeholder = game === "pokemon"
+            ? "Search Pokémon cards by name, set, or collector number (e.g., Pikachu, swsh3 136)..."
+            : "Search card by name or scan barcode (e.g. Black Lotus, Sol Ring)...";
+        }
+      });
+      // Synchronize finish options with initial dropdown selection
+      updateFinishOptions(intakeGameSelect.value);
+    }
+
     // Search input typing
     searchInput.addEventListener("input", (e) => {
       const val = e.target.value;
@@ -648,10 +747,12 @@
         e.preventDefault();
         stageCurrentCard();
       } else if (!isInput && activeCard) {
-        // Finish hotkeys: 1 (Nonfoil), 2 (Foil), 3 (Etched)
+        const isPokemon = (intakeGameSelect ? intakeGameSelect.value : (activeCard.game || "")).toLowerCase() === "pokemon";
+        // Finish hotkeys: 1 (Nonfoil), 2 (Foil/Holo), 3 (Etched/Reverse Holo), 4 (1st Edition)
         if (e.key === "1") setFinish("nonfoil");
-        if (e.key === "2") setFinish("foil");
-        if (e.key === "3") setFinish("etched");
+        if (e.key === "2") setFinish(isPokemon ? "holo" : "foil");
+        if (e.key === "3") setFinish(isPokemon ? "reverse_holo" : "etched");
+        if (e.key === "4" && isPokemon) setFinish("first_edition");
 
         // Condition hotkeys: q (NM), w (LP), e (MP), r (HP), t (DMG)
         if (e.key.toLowerCase() === "q") setCondition("NM");

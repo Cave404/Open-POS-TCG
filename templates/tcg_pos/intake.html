@@ -50,12 +50,17 @@
       <div class="tcg-card search-card">
         <div class="search-wrapper">
           <div class="search-input-box">
+            <!-- Game Selector (MTG vs Pokémon) -->
+            <select id="intake-game-select" class="filter-select" style="margin-right: 0.6rem; font-weight: 700; background-color: #1e293b; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.35rem 0.5rem;">
+              <option value="mtg" selected>Magic (MTG)</option>
+              <option value="pokemon">Pokémon TCG</option>
+            </select>
             <span class="search-icon">&#128269;</span>
             <input 
               type="text" 
               id="card-search-input" 
               class="search-input" 
-              placeholder="Search card name (e.g. 'Sol Ring') or scan code (e.g. 'cmm 401')..."
+              placeholder="Search card name (e.g. 'Pikachu' or 'Sol Ring') or scan code..."
               autocomplete="off"
               autofocus
             />
@@ -98,9 +103,14 @@
                 </div>
                 <div id="card-type-line" class="card-type-line">Artifact</div>
                 <div class="card-badges-row">
+                  <span id="badge-game" class="badge" style="background: #6366f1; color: #fff;">MTG</span>
                   <span id="badge-rarity" class="badge badge-rare">Rare</span>
                   <span id="badge-set" class="badge badge-set">Set Title (CODE)</span>
                   <span id="badge-collector" class="badge badge-set">#000</span>
+                  <!-- Pokémon Gameplay Attributes -->
+                  <span id="badge-hp" class="badge" style="display:none; background: #dc2626; color: #fff; font-weight: 700;">120 HP</span>
+                  <span id="badge-stage" class="badge" style="display:none; background: #475569; color: #fff;">Stage 1</span>
+                  <span id="badge-type" class="badge" style="display:none; background: #eab308; color: #000; font-weight: 700;">Lightning</span>
                 </div>
               </div>
 
@@ -115,19 +125,19 @@
                   <span id="val-low" class="benchmark-val">$0.00</span>
                 </div>
                 <div class="benchmark-box">
-                  <span class="benchmark-label">Foil Market</span>
+                  <span id="label-foil" class="benchmark-label">Foil / Holo</span>
                   <span id="val-foil" class="benchmark-val">$0.00</span>
                 </div>
                 <div class="benchmark-box">
-                  <span class="benchmark-label">Etched Market</span>
+                  <span id="label-etched" class="benchmark-label">Etched / Specialty</span>
                   <span id="val-etched" class="benchmark-val">$0.00</span>
                 </div>
               </div>
 
-              <!-- Finish Selector Matrix -->
+              <!-- Finish Selector Matrix (Dynamic for MTG vs Pokémon) -->
               <div class="matrix-section">
-                <span class="matrix-label">Finish Variant [1-3]</span>
-                <div class="btn-group">
+                <span class="matrix-label">Finish Variant [1-4]</span>
+                <div id="finish-btn-group" class="btn-group">
                   <button type="button" class="btn-matrix btn-finish active" data-finish="nonfoil">Nonfoil (Regular)</button>
                   <button type="button" class="btn-matrix btn-finish" data-finish="foil">Foil / Holo</button>
                   <button type="button" class="btn-matrix btn-finish" data-finish="etched">Etched / Specialty</button>

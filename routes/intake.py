@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from models import SinglesInventory, get_db_session
 from providers.mtg_scryfall import ScryfallProvider
+from providers.pokemon_tcgdex import PokemonTCGdexProvider
 from services.buylist import BuylistCalculator
 
 try:
@@ -25,6 +26,7 @@ except ImportError:
 
 # Cached provider and calculator instances
 _scryfall_provider: Optional[ScryfallProvider] = None
+_pokemon_provider: Optional[PokemonTCGdexProvider] = None
 _buylist_calculator: Optional[BuylistCalculator] = None
 
 
@@ -34,6 +36,22 @@ def get_scryfall_provider() -> ScryfallProvider:
     if _scryfall_provider is None:
         _scryfall_provider = ScryfallProvider()
     return _scryfall_provider
+
+
+def get_pokemon_provider() -> PokemonTCGdexProvider:
+    """Lazy-initializes and returns the shared PokemonTCGdexProvider instance."""
+    global _pokemon_provider
+    if _pokemon_provider is None:
+        _pokemon_provider = PokemonTCGdexProvider()
+    return _pokemon_provider
+
+
+def get_provider_for_game(game: str):
+    """Factory returning the registered card catalog provider for a target collectible game."""
+    norm_game = (game or "mtg").strip().lower()
+    if norm_game == "pokemon":
+        return get_pokemon_provider()
+    return get_scryfall_provider()
 
 
 def get_buylist_calculator() -> BuylistCalculator:
@@ -89,11 +107,15 @@ def api_search_cards():
     if not query:
         return jsonify({"success": True, "results": [], "query": ""})
 
-    # Check for direct set code + collector number scanner syntax: e.g. "neo 242" or "neo/242" or "cmm #401"
-    scanner_match = re.match(r"^([a-zA-Z0-9]{3,6})[\s/#]+([a-zA-Z0-9\-★]+)$", query)
-    if scanner_match and game == "mtg":
+    if game not in ("mtg", "pokemon"):
+        return jsonify({"success": False, "error": f"Unsupported game: '{game}'"}), 400
+
+    provider = get_provider_for_game(game)
+
+    # Check for direct set code + collector number scanner syntax: e.g. "neo 242" or "swsh3 136"
+    scanner_match = re.match(r"^([a-zA-Z0-9]{2,8})[\s/#\-]+([a-zA-Z0-9\-★]+)$", query)
+    if scanner_match:
         set_code, collector_num = scanner_match.group(1).lower(), scanner_match.group(2)
-        provider = get_scryfall_provider()
         card = provider.get_card_by_collector_number(
             set_code=set_code,
             collector_number=collector_num,
@@ -107,18 +129,14 @@ def api_search_cards():
                 "query": query
             })
 
-    # Fallback to standard provider catalog search
-    if game == "mtg":
-        provider = get_scryfall_provider()
-        cards = provider.search_cards(query=query, page=page, download_images=download_images)
-        return jsonify({
-            "success": True,
-            "results": [card.to_dict() for card in cards],
-            "matched_scanner_syntax": False,
-            "query": query
-        })
-
-    return jsonify({"success": False, "error": f"Unsupported game: '{game}'"}), 400
+    # Catalog search
+    cards = provider.search_cards(query=query, page=page, download_images=download_images)
+    return jsonify({
+        "success": True,
+        "results": [card.to_dict() for card in cards],
+        "matched_scanner_syntax": False,
+        "query": query
+    })
 
 
 @addon_bp.route("/api/lookup/<set_code>/<collector_number>", methods=["GET"])
@@ -130,22 +148,22 @@ def api_lookup_card(set_code: str, collector_number: str):
     lang = request.args.get("lang", "en").strip().lower()
     download_image = request.args.get("download_image", "false").lower() in ("true", "1", "yes")
 
-    if game == "mtg":
-        provider = get_scryfall_provider()
-        card = provider.get_card_by_collector_number(
-            set_code=set_code.lower().strip(),
-            collector_number=collector_number.strip(),
-            lang=lang,
-            download_image=download_image
-        )
-        if card:
-            return jsonify({"success": True, "card": card.to_dict()})
-        return jsonify({
-            "success": False,
-            "error": f"Card not found for set '{set_code}' #{collector_number}"
-        }), 404
+    if game not in ("mtg", "pokemon"):
+        return jsonify({"success": False, "error": f"Unsupported game: '{game}'"}), 400
 
-    return jsonify({"success": False, "error": f"Unsupported game: '{game}'"}), 400
+    provider = get_provider_for_game(game)
+    card = provider.get_card_by_collector_number(
+        set_code=set_code.lower().strip(),
+        collector_number=collector_number.strip(),
+        lang=lang,
+        download_image=download_image
+    )
+    if card:
+        return jsonify({"success": True, "card": card.to_dict()})
+    return jsonify({
+        "success": False,
+        "error": f"Card not found for set '{set_code}' #{collector_number}"
+    }), 404
 
 
 @addon_bp.route("/api/buylist/calculate", methods=["POST"])
