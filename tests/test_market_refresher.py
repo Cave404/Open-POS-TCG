@@ -248,13 +248,92 @@ def test_selective_game_execution(seed_inventory, test_db):
         assert job.total_items == 3  # Only 3 MTG cards in DB
         assert job.updated_items == 3
 
+    # Assert Pokémon provider was never called
+    mock_poke.fetch_market_prices.assert_not_called()
+
     # Verify DB: MTG cards updated, Pokémon cards unchanged
     session = session_factory()
     sol_ring = session.query(SinglesInventory).filter_by(provider_card_id="mtg-sol-ring").first()
-    pikachu = session.query(SinglesInventory).filter_by(provider_card_id="swsh3-136").first()
-
+    black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
     assert sol_ring.market_price == 12.00
-    assert pikachu.market_price == 20.00  # Untouched
+    assert black_lotus.market_price == 5500.00
+
+    # Assert Pokémon cards remain untouched
+    pokemon_cards = session.query(SinglesInventory).filter_by(game="pokemon").all()
+    assert len(pokemon_cards) == 2, "Expected 2 Pokémon cards in test database"
+    for p_card in pokemon_cards:
+        if p_card.provider_card_id == "swsh3-136":
+            assert p_card.name == "Pikachu"
+            assert p_card.market_price == 20.00, f"Pikachu market_price was modified: {p_card.market_price}"
+            assert p_card.sell_price == 20.00, f"Pikachu sell_price was modified: {p_card.sell_price}"
+            assert p_card.quantity == 5, f"Pikachu quantity was modified: {p_card.quantity}"
+            assert "last_price_drift" not in (p_card.api_metadata or {}), "Pikachu api_metadata was modified!"
+        elif p_card.provider_card_id == "base1-4":
+            assert p_card.name == "Charizard"
+            assert p_card.market_price == 100.00, f"Charizard market_price was modified: {p_card.market_price}"
+            assert p_card.sell_price == 100.00, f"Charizard sell_price was modified: {p_card.sell_price}"
+            assert p_card.quantity == 1, f"Charizard quantity was modified: {p_card.quantity}"
+            assert "last_price_drift" not in (p_card.api_metadata or {}), "Charizard api_metadata was modified!"
+    session.close()
+
+
+def test_pokemon_cards_remain_untouched_when_refreshing_mtg(seed_inventory, test_db):
+    """
+    EXPLICIT REQUIREMENT:
+    Assert Pokémon cards remain untouched when selective refresh is executed for MTG.
+    Verifies market_price, sell_price, quantity, api_metadata, and timestamps for all Pokémon cards.
+    """
+    _, session_factory = test_db
+    service = MarketRefresherService()
+
+    mock_provider = MagicMock()
+    mock_provider.fetch_market_prices.return_value = {"market": 999.99}
+
+    # Record snapshot of Pokémon cards prior to execution
+    session = session_factory()
+    before_pokemon = {
+        p.provider_card_id: {
+            "market_price": p.market_price,
+            "sell_price": p.sell_price,
+            "quantity": p.quantity,
+            "updated_at": p.updated_at,
+            "api_metadata": dict(p.api_metadata or {})
+        }
+        for p in session.query(SinglesInventory).filter_by(game="pokemon").all()
+    }
+    session.close()
+
+    with patch("services.market_refresher.get_provider") as mock_gp:
+        # If MTG, return mock provider; if Pokémon, fail immediately if called
+        mock_gp.side_effect = lambda g: mock_provider if g == "mtg" else pytest.fail(f"Pokémon provider was accessed for game '{g}'!")
+
+        job = PriceRefreshJob(job_id="test-poke-untouched", game="mtg", in_stock_only=False, max_age_days=0)
+        service._run_refresh(
+            job=job,
+            in_stock_only=False,
+            max_age_days=0,
+            auto_adjust_sell_price=True,
+            margin_multiplier=1.25,
+            session_factory=session_factory
+        )
+
+        assert job.status == "completed"
+
+    # Verify every Pokémon card in the database remains completely untouched
+    session = session_factory()
+    after_pokemon = session.query(SinglesInventory).filter_by(game="pokemon").all()
+    assert len(after_pokemon) == 2, "Expected exactly 2 Pokémon cards in database"
+
+    for p_card in after_pokemon:
+        orig = before_pokemon[p_card.provider_card_id]
+        # Assert Pokémon cards remain untouched across all pricing, inventory, and metadata attributes
+        assert p_card.market_price == orig["market_price"], f"Pokémon {p_card.name} market_price changed!"
+        assert p_card.sell_price == orig["sell_price"], f"Pokémon {p_card.name} sell_price changed!"
+        assert p_card.quantity == orig["quantity"], f"Pokémon {p_card.name} quantity changed!"
+        assert p_card.updated_at == orig["updated_at"], f"Pokémon {p_card.name} updated_at changed!"
+        assert p_card.api_metadata == orig["api_metadata"], f"Pokémon {p_card.name} api_metadata changed!"
+        assert "last_price_drift" not in (p_card.api_metadata or {})
+
     session.close()
 
 
@@ -632,5 +711,19 @@ def test_database_concurrency_background_worker_and_register_checkout(test_app, 
     sol_ring = session.get(SinglesInventory, 1)
     assert sol_ring.quantity == 3, f"Expected quantity 3 after checkout, got {sol_ring.quantity}"
     assert sol_ring.market_price == 15.00, f"Expected updated market price 15.00, got {sol_ring.market_price}"
+
+    # Assert Pokémon cards remain untouched
+    pokemon_cards = session.query(SinglesInventory).filter_by(game="pokemon").all()
+    assert len(pokemon_cards) == 2
+    for p_card in pokemon_cards:
+        if p_card.provider_card_id == "swsh3-136":
+            assert p_card.market_price == 20.00, "Pikachu market_price was modified during MTG sync!"
+            assert p_card.sell_price == 20.00
+            assert "last_price_drift" not in (p_card.api_metadata or {})
+        elif p_card.provider_card_id == "base1-4":
+            assert p_card.market_price == 100.00, "Charizard market_price was modified during MTG sync!"
+            assert p_card.sell_price == 100.00
+            assert "last_price_drift" not in (p_card.api_metadata or {})
+
     session.close()
 
