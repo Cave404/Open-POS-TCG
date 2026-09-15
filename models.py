@@ -7,8 +7,9 @@ Polymorphic SQLAlchemy models for singles inventory, buylist tracking,
 and market pricing persistence across SQLite and PostgreSQL engines.
 """
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Generator, Optional
 from sqlalchemy import (
     Column,
     Integer,
@@ -38,23 +39,29 @@ def init_db(engine=None, database_uri: Optional[str] = None):
     """
     Initializes database tables and creates the session factory.
     Safely creates tables if they do not yet exist.
+    Configures polite busy timeouts on SQLite to prevent lock contention.
     """
     global _SESSION_FACTORY
     if engine is None:
         if database_uri:
-            engine = create_engine(database_uri, echo=False)
+            connect_args = {"timeout": 30.0} if database_uri.startswith("sqlite") else {}
+            engine = create_engine(database_uri, echo=False, connect_args=connect_args)
         else:
             from pathlib import Path
             data_dir = Path.cwd() / "data"
             data_dir.mkdir(parents=True, exist_ok=True)
             db_path = data_dir / "openpos.db"
-            engine = create_engine(f"sqlite:///{db_path.as_posix()}", echo=False)
+            engine = create_engine(
+                f"sqlite:///{db_path.as_posix()}",
+                echo=False,
+                connect_args={"timeout": 30.0}
+            )
     Base.metadata.create_all(engine)
     _SESSION_FACTORY = sessionmaker(bind=engine)
     return engine
 
 
-def get_db_session(engine=None):
+def get_db_session(engine=None) -> Session:
     """
     Returns an active SQLAlchemy session.
     Allows passing an explicit engine (e.g. for in-memory testing).
@@ -65,6 +72,29 @@ def get_db_session(engine=None):
     if _SESSION_FACTORY is None:
         init_db()
     return _SESSION_FACTORY()
+
+
+@contextmanager
+def db_session_scope(engine=None, session_factory=None) -> Generator[Session, None, None]:
+    """
+    Context manager providing a short-lived transactional database session.
+    Automatically commits on normal block exit, rolls back on exception,
+    and unconditionally closes the session to release database connection locks.
+    Essential for background worker threads to avoid locking SQLite or PostgreSQL tables
+    against concurrent main Flask register/intake threads.
+    """
+    if session_factory is not None:
+        session = session_factory()
+    else:
+        session = get_db_session(engine=engine)
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 class SinglesInventory(Base):

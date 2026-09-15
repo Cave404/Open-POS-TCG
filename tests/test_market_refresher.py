@@ -42,10 +42,17 @@ from services.market_refresher import MarketRefresherService, PriceRefreshJob
 
 # --- Test Fixtures ---
 
+from sqlalchemy.pool import StaticPool
+
 @pytest.fixture
 def test_db():
-    """Sets up an isolated in-memory SQLite database sessionmaker."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    """Sets up an isolated in-memory SQLite database sessionmaker with thread sharing."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
+    )
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine)
     return engine, session_factory
@@ -563,3 +570,67 @@ def test_api_pricing_alerts_and_actions(test_app, seed_inventory):
     assert updated_char.sell_price == 100.00
     assert "last_price_drift" not in updated_char.api_metadata
     session.close()
+
+
+def test_database_concurrency_background_worker_and_register_checkout(test_app, seed_inventory):
+    """
+    CRITICAL CONCURRENCY TEST:
+    Verifies that background thread writing to database uses short-lived scoped sessions,
+    allowing the main Flask register thread to execute checkout transactions concurrently
+    without encountering database locks or operational errors.
+    """
+    import threading
+    app, client, session_factory = test_app
+    service = MarketRefresherService()
+
+    worker_started_event = threading.Event()
+
+    def slow_fetch(card_id):
+        worker_started_event.set()
+        time.sleep(0.05)  # 50ms simulated network wait
+        return {"market": 15.00}
+
+    mock_provider = MagicMock()
+    mock_provider.fetch_market_prices.side_effect = slow_fetch
+
+    with patch("services.market_refresher.get_provider", return_value=mock_provider):
+        # 1. Start real background thread
+        job_id = service.start_refresh(
+            game="mtg",
+            in_stock_only=True,
+            max_age_days=0,
+            session_factory=session_factory
+        )
+
+        # Wait until background worker has begun executing network calls
+        assert worker_started_event.wait(timeout=2.0), "Background worker failed to start!"
+
+        # 2. Concurrently execute register checkout decrement on main Flask thread
+        # Decrement Sol Ring (id=1, starts with quantity=4)
+        checkout_payload = [
+            {"id": 1, "quantity": 1}
+        ]
+        checkout_resp = client.post("/tcg/api/register/decrement", json=checkout_payload)
+
+        # Main register thread must succeed with HTTP 200 without database locks
+        assert checkout_resp.status_code == 200, (
+            f"Register checkout failed during background sync: {checkout_resp.get_data(as_text=True)}"
+        )
+        checkout_data = checkout_resp.get_json()
+        assert checkout_data["success"] is True
+
+        # 3. Wait for background worker to complete
+        timeout = time.time() + 5.0
+        while time.time() < timeout and service.is_running():
+            time.sleep(0.05)
+
+        assert not service.is_running(), "Background worker timed out!"
+        assert service.job.status == "completed"
+
+    # Verify inventory was decremented to 3 by register, and market_price was updated by worker
+    session = session_factory()
+    sol_ring = session.get(SinglesInventory, 1)
+    assert sol_ring.quantity == 3, f"Expected quantity 3 after checkout, got {sol_ring.quantity}"
+    assert sol_ring.market_price == 15.00, f"Expected updated market price 15.00, got {sol_ring.market_price}"
+    session.close()
+

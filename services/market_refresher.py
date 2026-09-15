@@ -173,131 +173,139 @@ class MarketRefresherService:
     ) -> None:
         """
         Core worker routine executed in background thread:
-        - Resolves items matching game, stock, and age criteria.
-        - Dispatches pricing queries to game-specific providers via registry.
-        - Detects price volatility drifts (>= 20% swing) and records alerts.
-        - Commits updates in chunks of 50 to prevent lengthy write locks.
+        - Uses short-lived scoped database sessions (db_session_scope) to prevent database locks
+          on SQLite or PostgreSQL while the main Flask register thread processes checkouts/intake.
+        - Resolves work items in a short-lived read session and closes it immediately.
+        - Issues external network requests completely detached from any open database session.
+        - Writes price updates using sub-millisecond short-lived sessions, committing and releasing
+          locks immediately after each record.
         """
-        session: Session = session_factory() if session_factory else get_db_session()
+        from models import db_session_scope
 
         job.status = "running"
         if not job.started_at:
             job.started_at = datetime.now(timezone.utc)
 
         try:
-            query = session.query(SinglesInventory)
+            # 1. Short-lived read session: query target items and close session immediately
+            with db_session_scope(session_factory=session_factory) as read_session:
+                query = read_session.query(SinglesInventory)
 
-            if job.game:
-                query = query.filter_by(game=job.game)
-            else:
-                # Only include games with active providers registered
-                query = query.filter(SinglesInventory.game.in_(list(GAME_PROVIDERS.keys())))
+                if job.game:
+                    query = query.filter_by(game=job.game)
+                else:
+                    # Only include games with active providers registered
+                    query = query.filter(SinglesInventory.game.in_(list(GAME_PROVIDERS.keys())))
 
-            if in_stock_only:
-                query = query.filter(SinglesInventory.quantity > 0)
+                if in_stock_only:
+                    query = query.filter(SinglesInventory.quantity > 0)
 
-            if max_age_days > 0:
-                cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
-                query = query.filter(SinglesInventory.updated_at <= cutoff)
+                if max_age_days > 0:
+                    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+                    query = query.filter(SinglesInventory.updated_at <= cutoff)
 
-            # Query primary IDs first to prevent holding long open cursors across network calls
-            item_ids = [row[0] for row in query.with_entities(SinglesInventory.id).all()]
-            job.total_items = len(item_ids)
+                # Detach lightweight item specs so no ORM objects or cursors are held
+                items_to_process = [
+                    {
+                        "id": row.id,
+                        "game": row.game,
+                        "provider_card_id": row.provider_card_id,
+                        "name": row.name,
+                        "set_code": row.set_code,
+                        "collector_number": row.collector_number,
+                    }
+                    for row in query.all()
+                ]
+
+            # Read session is now closed. Zero database locks held during upstream network calls!
+            job.total_items = len(items_to_process)
 
             if job.total_items == 0:
                 job.status = "completed"
                 job.finished_at = datetime.now(timezone.utc)
                 return
 
-            for idx, item_id in enumerate(item_ids, start=1):
+            for idx, item_spec in enumerate(items_to_process, start=1):
                 if self._cancel_event.is_set():
                     job.status = "cancelled"
                     break
 
-                item = session.get(SinglesInventory, item_id)
-                if not item:
-                    job.processed_items = idx
-                    continue
+                job.current_card_name = f"{item_spec['name']} ({item_spec['set_code'].upper()} #{item_spec['collector_number']})"
 
-                job.current_card_name = f"{item.name} ({item.set_code.upper()} #{item.collector_number})"
-
-                provider = get_provider(item.game)
+                provider = get_provider(item_spec["game"])
                 if not provider:
-                    job.errors.append(f"No provider registered for game '{item.game}' (Item ID {item.id})")
+                    job.errors.append(f"No provider registered for game '{item_spec['game']}' (Item ID {item_spec['id']})")
                     job.processed_items = idx
                     continue
 
+                # Upstream HTTP request: executed outside any database session
                 try:
-                    prices = provider.fetch_market_prices(item.provider_card_id)
+                    prices = provider.fetch_market_prices(item_spec["provider_card_id"])
                 except Exception as ex:
-                    job.errors.append(f"Provider error for {item.name} ({item.provider_card_id}): {str(ex)}")
+                    job.errors.append(f"Provider error for {item_spec['name']} ({item_spec['provider_card_id']}): {str(ex)}")
                     job.processed_items = idx
                     continue
 
+                # Short-lived write session: updates single record and releases lock immediately (< 1ms)
                 if prices and prices.get("market") is not None:
                     new_market = float(prices["market"])
-                    old_market = item.market_price
 
-                    # Price Drift & Volatility Protection: Flag swings >= 20%
-                    if old_market is not None and old_market > 0:
-                        pct_change = round(((new_market - old_market) / old_market) * 100.0, 2)
-                        if abs(pct_change) >= 20.0:
-                            meta = dict(item.api_metadata or {})
-                            meta["last_price_drift"] = {
-                                "old": old_market,
-                                "new": new_market,
-                                "change_pct": pct_change
-                            }
-                            meta["price_alert"] = True
-                            item.api_metadata = meta
-                            flag_modified(item, "api_metadata")
-                            job.volatility_alerts_count += 1
+                    with db_session_scope(session_factory=session_factory) as write_session:
+                        item = write_session.get(SinglesInventory, item_spec["id"])
+                        if item:
+                            old_market = item.market_price
 
-                    item.market_price = new_market
+                            # Price Drift & Volatility Protection: Flag swings >= 20%
+                            if old_market is not None and old_market > 0:
+                                pct_change = round(((new_market - old_market) / old_market) * 100.0, 2)
+                                if abs(pct_change) >= 20.0:
+                                    meta = dict(item.api_metadata or {})
+                                    meta["last_price_drift"] = {
+                                        "old": old_market,
+                                        "new": new_market,
+                                        "change_pct": pct_change
+                                    }
+                                    meta["price_alert"] = True
+                                    item.api_metadata = meta
+                                    flag_modified(item, "api_metadata")
+                                    job.volatility_alerts_count += 1
 
-                    if prices.get("low") is not None:
-                        try:
-                            item.low_price = float(prices["low"])
-                        except (ValueError, TypeError):
-                            pass
+                            item.market_price = new_market
 
-                    if prices.get("foil") is not None:
-                        try:
-                            item.foil_price = float(prices["foil"])
-                        except (ValueError, TypeError):
-                            pass
+                            if prices.get("low") is not None:
+                                try:
+                                    item.low_price = float(prices["low"])
+                                except (ValueError, TypeError):
+                                    pass
 
-                    if prices.get("etched") is not None:
-                        try:
-                            item.etched_price = float(prices["etched"])
-                        except (ValueError, TypeError):
-                            pass
+                            if prices.get("foil") is not None:
+                                try:
+                                    item.foil_price = float(prices["foil"])
+                                except (ValueError, TypeError):
+                                    pass
 
-                    if auto_adjust_sell_price:
-                        item.sell_price = round(new_market * float(margin_multiplier), 2)
+                            if prices.get("etched") is not None:
+                                try:
+                                    item.etched_price = float(prices["etched"])
+                                except (ValueError, TypeError):
+                                    pass
 
-                    item.updated_at = datetime.now(timezone.utc)
-                    job.updated_items += 1
+                            if auto_adjust_sell_price:
+                                item.sell_price = round(new_market * float(margin_multiplier), 2)
+
+                            item.updated_at = datetime.now(timezone.utc)
+                            job.updated_items += 1
 
                 job.processed_items = idx
-
-                # Commit in safe chunks of 50 to release write locks
-                if idx % 50 == 0:
-                    session.commit()
-
-            # Final commit for remaining batch
-            session.commit()
 
             if job.status == "running":
                 job.status = "completed"
 
         except Exception as ex:
-            session.rollback()
             job.status = "failed"
             job.errors.append(f"Fatal worker exception: {str(ex)}")
         finally:
             job.finished_at = datetime.now(timezone.utc)
-            session.close()
 
 
 # Shared singleton service instance
