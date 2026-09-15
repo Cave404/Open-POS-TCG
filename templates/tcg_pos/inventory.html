@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG POS - Inventory Management</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Addon Stylesheets -->
+  <link rel="stylesheet" href="{{ url_for('tcg_pos.static', filename='tcg_pos/css/inventory.css') }}">
+</head>
+<body>
+
+  <!-- OpenPOS Standard Navigation Bar (Zero Dead-End Navigation) -->
+  <header class="tcg-navbar">
+    <div class="tcg-nav-brand">
+      <span class="tcg-brand-badge">TCG POS</span>
+      <h1 class="tcg-nav-title">TCG POS - Inventory Management</h1>
+    </div>
+    <div class="tcg-nav-actions">
+      <!-- Shortcut to Intake Workstation -->
+      <a href="/tcg/intake" class="btn-nav-action" title="Open Intake & Buylist Workstation">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Intake Workstation</span>
+      </a>
+
+      <!-- Return to Core Dashboard Action -->
+      <a href="/" class="btn-nav-action primary" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Workstation Layout -->
+  <main class="inventory-container">
+
+    <!-- Filtration & Search Toolbar -->
+    <section class="filter-card">
+      <div class="filter-group-left">
+        <!-- Live Search Input -->
+        <div class="filter-input-box">
+          <span style="color: var(--text-dim); margin-right: 0.5rem;">&#128269;</span>
+          <input 
+            type="text" 
+            id="inv-search-input" 
+            class="filter-input" 
+            placeholder="Search by name, SKU, or tag ID..." 
+            autocomplete="off"
+          />
+        </div>
+
+        <!-- Game Selector -->
+        <select id="filter-game" class="filter-select">
+          <option value="">All Games</option>
+          <option value="mtg" selected>Magic: The Gathering</option>
+          <option value="pokemon">Pokémon TCG</option>
+        </select>
+
+        <!-- Set Code Filter -->
+        <input 
+          type="text" 
+          id="filter-set" 
+          class="filter-select" 
+          placeholder="Set (e.g. DMU)" 
+          style="width: 110px; text-transform: uppercase;" 
+        />
+
+        <!-- Condition Filter -->
+        <select id="filter-condition" class="filter-select">
+          <option value="">All Conditions</option>
+          <option value="NM">Near Mint (NM)</option>
+          <option value="LP">Lightly Played (LP)</option>
+          <option value="MP">Moderately Played (MP)</option>
+          <option value="HP">Heavily Played (HP)</option>
+          <option value="DMG">Damaged (DMG)</option>
+        </select>
+
+        <!-- Finish Filter -->
+        <select id="filter-finish" class="filter-select">
+          <option value="">All Finishes</option>
+          <option value="nonfoil">Nonfoil</option>
+          <option value="foil">Foil</option>
+          <option value="etched">Etched</option>
+        </select>
+
+        <!-- In-Stock Only Toggle -->
+        <label class="filter-checkbox-label">
+          <input type="checkbox" id="filter-in-stock" checked />
+          <span>In-Stock Only</span>
+        </label>
+      </div>
+
+      <div>
+        <button type="button" id="btn-refresh-inv" class="btn-filter-refresh">&#8635; Refresh</button>
+      </div>
+    </section>
+
+    <!-- Inventory Data Grid Card -->
+    <section class="grid-card">
+      <div class="table-wrapper">
+        <table class="inv-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">Art</th>
+              <th>Card Title & SKU</th>
+              <th>Set / Number</th>
+              <th>Finish</th>
+              <th>Condition</th>
+              <th>Quantity</th>
+              <th>Cost Basis</th>
+              <th>Sell Price</th>
+              <th>Hardware Token</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="inv-table-body"></tbody>
+        </table>
+
+        <!-- Empty State Graphic -->
+        <div id="inv-empty-state" style="display: none; text-align: center; padding: 4rem 1.5rem; color: var(--text-dim);">
+          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">&#128451;</div>
+          <h3 style="color: var(--text-muted); font-size: 1.15rem; margin-bottom: 0.4rem;">No Inventory Records Found</h3>
+          <p style="font-size: 0.88rem;">Adjust your filter criteria or use the Intake Workstation to add single cards.</p>
+        </div>
+      </div>
+
+      <!-- Pagination Controls Footer -->
+      <footer class="pagination-footer">
+        <span id="pagination-info">Loading records...</span>
+        <div class="pagination-controls">
+          <button type="button" id="btn-prev-page" class="btn-page" disabled>&larr; Previous</button>
+          <button type="button" id="btn-next-page" class="btn-page" disabled>Next &rarr;</button>
+        </div>
+      </footer>
+    </section>
+
+  </main>
+
+  <!-- Hardware Tag Assignment Modal -->
+  <div id="tag-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Assign Hardware Token (NFC / Barcode)</h3>
+        <button type="button" id="btn-close-tag-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <div id="tag-item-title" style="font-weight: 700; font-size: 1.05rem; color: var(--text-main);">Item Title</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">
+            Tap an NFC sleeve on your desktop reader or scan a 1D/2D barcode sleeve.
+          </div>
+        </div>
+
+        <div class="tag-listener-pulse-box">
+          <div class="pulse-circle">&#128225;</div>
+          <div id="tag-status-message" style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">
+            Listening for NFC tap or barcode scanner wedge...
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
+            Hardware Identifier (or manual entry)
+          </label>
+          <input 
+            type="text" 
+            id="tag-input-val" 
+            class="filter-select" 
+            style="width: 100%; font-family: monospace; font-size: 1rem; padding: 0.6rem;" 
+            placeholder="e.g. 04:A2:3B:49:10 or BARCODE123" 
+          />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-nav-action" onclick="document.getElementById('tag-modal').style.display='none'">Cancel</button>
+        <button type="button" id="btn-save-tag" class="btn-nav-action primary">Bind Token</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Thermal Sleeve Label Print Modal -->
+  <div id="label-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Thermal Sleeve Label Generator</h3>
+        <button type="button" id="btn-close-label-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Standard 2" &times; 1" thermal sleeve sticker preview formatted for retail singles displays.
+        </p>
+        
+        <!-- Live Label Preview Area -->
+        <div id="label-preview-area" style="margin: 1rem 0;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-nav-action" onclick="document.getElementById('label-modal').style.display='none'">Close</button>
+        <button type="button" id="btn-trigger-print" class="btn-nav-action primary">&#128424; Print Label</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Edit Modal -->
+  <div id="edit-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Quick Edit Inventory Record</h3>
+        <button type="button" id="btn-close-edit-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="edit-item-title" style="font-weight: 700; font-size: 1.05rem; color: var(--text-main);">Item Title</div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div>
+            <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
+              Sell Price ($)
+            </label>
+            <input type="number" id="edit-input-price" class="filter-select" style="width: 100%;" step="0.01" min="0.00" />
+          </div>
+
+          <div>
+            <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
+              Current Stock Quantity
+            </label>
+            <input type="number" id="edit-input-qty" class="filter-select" style="width: 100%;" min="0" />
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">
+            Custom SKU (Optional)
+          </label>
+          <input type="text" id="edit-input-sku" class="filter-select" style="width: 100%; font-family: monospace;" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-nav-action" onclick="document.getElementById('edit-modal').style.display='none'">Cancel</button>
+        <button type="button" id="btn-save-edit" class="btn-nav-action primary">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Script Engine -->
+  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/inventory.js') }}"></script>
+</body>
+</html>

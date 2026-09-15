@@ -100,6 +100,10 @@ class SinglesInventory(Base):
     foil_price = Column(Float, nullable=True)                        # Upstream foil market rate
     etched_price = Column(Float, nullable=True)                      # Upstream etched rate
 
+    # Hardware & POS Tracking Identifiers
+    sku = Column(String(64), unique=True, index=True, nullable=True)
+    custom_tag_id = Column(String(128), index=True, nullable=True)
+
     # Visual Asset References
     image_path = Column(String(512), nullable=True)                  # Local cached path (data/cache/tcg_art/...)
     image_uri = Column(String(512), nullable=True)                   # Upstream CDN fallback
@@ -133,6 +137,15 @@ class SinglesInventory(Base):
         Index("ix_singles_set_code", "set_code"),
     )
 
+    def generate_default_sku(self) -> str:
+        """Generates a deterministic SKU if none is explicitly assigned."""
+        if self.sku:
+            return self.sku
+        if self.id:
+            return f"TCG-{self.id}"
+        finish_code = (self.finish or "n")[:1].lower()
+        return f"{self.game}-{self.set_code}-{self.collector_number}-{finish_code}-{self.condition}".upper()
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes model instance into a JSON-serializable dictionary
@@ -157,6 +170,8 @@ class SinglesInventory(Base):
             "low_price": self.low_price,
             "foil_price": self.foil_price,
             "etched_price": self.etched_price,
+            "sku": self.sku or (f"TCG-{self.id}" if self.id else None),
+            "custom_tag_id": self.custom_tag_id,
             "image_path": self.image_path,
             "image_uri": self.image_uri,
             "api_metadata": self.api_metadata if isinstance(self.api_metadata, dict) else {},

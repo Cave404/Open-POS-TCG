@@ -27,3 +27,5 @@ def addon_status():
 
 # Import route handlers to attach endpoints to addon_bp
 from routes import intake  # noqa: E402, F401
+from routes import register  # noqa: E402, F401
+from routes import inventory  # noqa: E402, F401
