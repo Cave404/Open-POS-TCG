@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OpenPOS TCG Addon - Register Checkout Client Engine
  * File: static/tcg_pos/js/register.js
  */
@@ -379,6 +379,20 @@
     if (e.key === "Escape" && tenderModal.style.display !== "none") closeTenderModal();
   });
 
+  // Quick-select bill button handlers
+  document.querySelectorAll(".btn-quick-bill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const addAmt = parseFloat(btn.getAttribute("data-amount")) || 0;
+      const currentVal = parseFloat(tenderCashInput.value) || 0;
+      tenderCashInput.value = (currentVal + addAmt).toFixed(2);
+      recalcTender();
+      tenderCashInput.focus();
+    });
+  });
+
+  const optPrintReceipt = document.getElementById("optPrintReceipt");
+  const optKickDrawer   = document.getElementById("optKickDrawer");
+
   async function confirmCheckout() {
     const cash   = parseFloat(tenderCashInput.value)   || 0;
     const card   = parseFloat(tenderCardInput.value)   || 0;
@@ -392,23 +406,28 @@
     btnConfirmTender.disabled = true;
     btnConfirmTender.innerHTML = `<span>⏳</span> Settling...`;
 
-    const tenders = [];
-    if (cash   > 0) tenders.push({ tender_type: "cash",         amount: cash,   reference: null });
-    if (card   > 0) tenders.push({ tender_type: "card",         amount: card,   reference: tenderCardRef.value.trim() || null });
-    if (credit > 0) tenders.push({ tender_type: "store_credit", amount: credit, reference: tenderCreditRef.value.trim() || null });
-
     const payload = {
-      cart: cart.map(item => ({
-        inventory_id: item.id,
+      items: cart.map(item => ({
+        id: item.id,
         quantity: item.quantity,
         unit_price: item.sell_price,
       })),
-      tenders,
+      tenders: {
+        cash: cash,
+        card: card,
+        store_credit: credit,
+      },
       tax_rate: TAX_RATE,
+      discount: 0.0,
+      notes: "",
+      options: {
+        print_receipt: optPrintReceipt ? optPrintReceipt.checked : true,
+        kick_drawer: optKickDrawer ? optKickDrawer.checked : false,
+      },
     };
 
     try {
-      const resp = await fetch("/tcg/api/checkout/settle", {
+      const resp = await fetch("/tcg/api/checkout/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -421,11 +440,16 @@
         cart = [];
         renderCart();
 
+        const txnNum = data.transaction?.transaction_number || data.transaction?.receipt_number || data.receipt_number || "";
         const receiptLink = data.receipt_url
           ? `<a class="toast-receipt-link" href="${data.receipt_url}" target="_blank">View Receipt</a>`
           : "";
         const changeMsg = data.change_due > 0 ? ` Change: $${data.change_due.toFixed(2)}.` : "";
-        showToast(`Sale complete! Receipt #${data.receipt_number}.${changeMsg} ${receiptLink}`, false);
+        showToast(`Sale complete! Receipt #${txnNum}.${changeMsg} ${receiptLink}`, false);
+
+        if (optPrintReceipt && optPrintReceipt.checked && data.receipt_url) {
+          window.open(`${data.receipt_url}?autoprint=1`, "_blank");
+        }
 
         if (data.hardware_warnings && data.hardware_warnings.length) {
           data.hardware_warnings.forEach(w => console.warn("[Register] HW warning:", w));
@@ -435,7 +459,7 @@
         showToast(data.error || "Settlement failed. Please try again.", true);
       }
     } catch (err) {
-      console.error("[Register] Checkout settle fault:", err);
+      console.error("[Register] Checkout submit fault:", err);
       if (window.hardwareBridge) window.hardwareBridge.chimeError();
       showToast("Network fault during settlement.", true);
     } finally {

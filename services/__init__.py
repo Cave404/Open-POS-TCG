@@ -8,18 +8,20 @@ from .buylist import (
     BuylistOffer,
     BuylistBatchResult,
     DEFAULT_CONDITION_MULTIPLIERS,
-    CONDITION_ALIASES
+    CONDITION_ALIASES,
 )
 from .market_refresher import (
     PriceRefreshJob,
     MarketRefresherService,
-    refresher_service
+    refresher_service,
 )
-from .checkout import (
+from .checkout_service import (
     CheckoutService,
     CartItem,
     TenderEntry,
     SettlementResult,
+    InsufficientStockError,
+    InvalidTenderError,
 )
 
 __all__ = [
@@ -35,4 +37,6 @@ __all__ = [
     "CartItem",
     "TenderEntry",
     "SettlementResult",
+    "InsufficientStockError",
+    "InvalidTenderError",
 ]

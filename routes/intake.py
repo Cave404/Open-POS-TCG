@@ -261,15 +261,27 @@ def api_intake_commit():
     if raw_data is None:
         return jsonify({"success": False, "error": "Missing JSON request body"}), 400
 
+    payout_type = None
+    customer_id = None
+    batch_number = None
+    total_payout = None
+
     if isinstance(raw_data, list):
         items = raw_data
     elif isinstance(raw_data, dict):
         items = raw_data.get("items") or raw_data.get("cards") or [raw_data]
+        payout_type = raw_data.get("payout_type")
+        customer_id = raw_data.get("customer_id")
+        batch_number = raw_data.get("batch_number")
+        total_payout = raw_data.get("total_payout")
     else:
         return jsonify({"success": False, "error": "Invalid payload format, expected array"}), 400
 
     if not items:
         return jsonify({"success": False, "error": "Empty intake items list"}), 400
+
+    if payout_type == "store_credit" and not customer_id:
+        return jsonify({"success": False, "error": "customer_id is required when payout_type is 'store_credit'."}), 400
 
     session = _resolve_session()
     # Check if this session was created locally and needs closing
@@ -277,6 +289,7 @@ def api_intake_commit():
 
     committed_count = 0
     updated_records = []
+
 
     try:
         for raw_item in items:
@@ -395,11 +408,34 @@ def api_intake_commit():
             committed_count += 1
 
         session.commit()
-        return jsonify({
+
+        customer_credit_balance = None
+        if payout_type == "store_credit":
+            from services.buylist_settlement import BuylistSettlementService
+            from services.core_customer_client import CoreCustomerClient
+            client = CoreCustomerClient(base_url=current_app.config.get("CORE_BASE_URL", "http://127.0.0.1:5000"))
+            calc_payout = float(total_payout) if total_payout is not None else sum(
+                float(i.get("cost_basis", 0.0)) * int(i.get("quantity", 1)) for i in items
+            )
+            settlement = BuylistSettlementService.settle_intake_payout(
+                payout_type="store_credit",
+                total_payout=calc_payout,
+                customer_id=int(customer_id),
+                batch_number=batch_number,
+                core_client=client
+            )
+            customer_credit_balance = settlement.get("customer_credit_balance")
+
+        resp_payload = {
             "success": True,
             "updated_count": committed_count,
             "message": f"Successfully processed and committed {committed_count} singles inventory items."
-        })
+        }
+        if customer_credit_balance is not None:
+            resp_payload["customer_credit_balance"] = customer_credit_balance
+
+        return jsonify(resp_payload)
+
 
     except Exception as e:
         session.rollback()

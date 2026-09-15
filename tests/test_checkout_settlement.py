@@ -650,3 +650,198 @@ class TestHardwareNonBlocking:
         finally:
             checkout_mod._fire_cash_drawer   = original_drawer
             checkout_mod._fire_receipt_spool = original_receipt
+
+
+# ---------------------------------------------------------------------------
+# Test 10: Specific Verification Workflow (Migration 003, 3 Seed Cards, Split Tender, Stock Error, Receipt)
+# ---------------------------------------------------------------------------
+
+class TestSpecificCheckoutWorkflow:
+    """
+    Executes the exact 5-step verification workflow requested:
+    1. Execute migration 003 on an in-memory SQLite database.
+    2. Seed inventory with 3 cards.
+    3. Execute checkout with split payment (Cash + Store Credit):
+       - Verify inventory quantities decrement accurately.
+       - Verify TCGTransaction record is created with correct grand_total and tender metadata.
+       - Verify TCGTransactionItem captures cost basis for profit tracking.
+    4. Attempt checkout with quantity exceeding stock and assert it raises an error and rolls back cleanly without updating balances.
+    5. Verify GET /tcg/receipt/<id> returns HTTP 200 with matching itemized prices.
+    """
+
+    @pytest.fixture
+    def isolated_db(self):
+        eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+
+        # 1. Execute migrations 001, 002, and 003 in order
+        with eng.connect() as conn:
+            m001_path = PROJECT_ROOT / "migrations" / "001_initial_schema.sqlite.sql"
+            m002_path = PROJECT_ROOT / "migrations" / "002_add_identifiers.sqlite.sql"
+            m003_path = PROJECT_ROOT / "migrations" / "003_add_transactions.sqlite.sql"
+
+            with open(m001_path, "r", encoding="utf-8") as f:
+                conn.connection.executescript(f.read())
+            with open(m002_path, "r", encoding="utf-8") as f:
+                conn.connection.executescript(f.read())
+            with open(m003_path, "r", encoding="utf-8") as f:
+                conn.connection.executescript(f.read())
+            conn.commit()
+
+        Session = sessionmaker(bind=eng)
+        session = Session()
+
+        # 2. Seed inventory with 3 cards
+        c1 = SinglesInventory(
+            game="mtg", provider_card_id="c-001", name="Lightning Bolt", clean_name="lightning bolt",
+            set_code="lea", set_name="Alpha", collector_number="161", rarity="common", finish="nonfoil",
+            condition="NM", quantity=4, cost_basis=1.50, sell_price=10.00, api_metadata={}
+        )
+        c2 = SinglesInventory(
+            game="mtg", provider_card_id="c-002", name="Counterspell", clean_name="counterspell",
+            set_code="lea", set_name="Alpha", collector_number="55", rarity="uncommon", finish="nonfoil",
+            condition="NM", quantity=2, cost_basis=3.00, sell_price=15.00, api_metadata={}
+        )
+        c3 = SinglesInventory(
+            game="pokemon", provider_card_id="c-003", name="Pikachu Illustrator", clean_name="pikachu illustrator",
+            set_code="promo", set_name="CoroCoro", collector_number="99", rarity="rare", finish="foil",
+            condition="LP", quantity=1, cost_basis=25.00, sell_price=100.00, api_metadata={}
+        )
+        session.add_all([c1, c2, c3])
+        session.commit()
+        session.close()
+
+        return eng
+
+    def test_complete_verification_steps(self, isolated_db):
+        from services.checkout_service import CheckoutService, InsufficientStockError
+        Session = sessionmaker(bind=isolated_db)
+        session = Session()
+
+        c1 = session.query(SinglesInventory).filter_by(name="Lightning Bolt").first()
+        c2 = session.query(SinglesInventory).filter_by(name="Counterspell").first()
+        c3 = session.query(SinglesInventory).filter_by(name="Pikachu Illustrator").first()
+
+        c1_id = c1.id
+        c2_id = c2.id
+        c3_id = c3.id
+        c3_qty = c3.quantity
+
+        # 3. Execute checkout with split payment (Cash + Store Credit)
+        # Buy 2 Lightning Bolt (2 * 10 = $20.00) and 1 Counterspell (1 * 15 = $15.00) => grand_total = $35.00
+        cart = [
+            {"id": c1_id, "quantity": 2},
+            {"id": c2_id, "quantity": 1},
+        ]
+        tenders = {
+            "cash": 20.00,
+            "store_credit": 15.00,
+        }
+
+        txn = CheckoutService.process_sale(
+            cart_items=cart,
+            tenders=tenders,
+            tax_rate=0.0,
+            session=session
+        )
+
+        assert txn is not None
+        assert txn.id is not None
+        assert txn.grand_total == pytest.approx(35.00)
+        assert txn.payment_method == "split"
+        assert txn.tender_details.get("cash") == pytest.approx(20.00)
+        assert txn.tender_details.get("store_credit") == pytest.approx(15.00)
+
+        # Verify inventory quantities decrement accurately
+        session.expire_all()
+        c1_after = session.query(SinglesInventory).filter_by(id=c1_id).first()
+        c2_after = session.query(SinglesInventory).filter_by(id=c2_id).first()
+        assert c1_after.quantity == 2  # 4 - 2
+        assert c2_after.quantity == 1  # 2 - 1
+
+        # Verify TCGTransactionItem captures cost basis for profit tracking
+        assert len(txn.items) == 2
+        item_c1 = next(item for item in txn.items if (item.singles_inventory_id == c1_id or item.inventory_id == c1_id))
+        item_c2 = next(item for item in txn.items if (item.singles_inventory_id == c2_id or item.inventory_id == c2_id))
+
+        assert item_c1.unit_cost_basis == pytest.approx(1.50)
+        assert item_c1.unit_sell_price == pytest.approx(10.00)
+        assert item_c1.quantity == 2
+
+        assert item_c2.unit_cost_basis == pytest.approx(3.00)
+        assert item_c2.unit_sell_price == pytest.approx(15.00)
+        assert item_c2.quantity == 1
+
+        # 4. Attempt checkout with quantity exceeding stock and assert it raises an error and rolls back cleanly
+        # Pikachu only has 1 in stock, attempt to buy 5
+        pre_qty_pika = c3_qty
+        pre_qty_c2 = c2_after.quantity
+
+        with pytest.raises(InsufficientStockError) as exc_info:
+            CheckoutService.process_sale(
+                cart_items=[
+                    {"id": c3_id, "quantity": 5},
+                    {"id": c2_id, "quantity": 1},
+                ],
+                tenders={"cash": 600.00},
+                session=session
+            )
+
+        assert "Insufficient stock" in str(exc_info.value)
+
+        # Assert clean rollback: inventory balances remain unchanged
+        session.rollback()
+        session.expire_all()
+        c3_check = session.query(SinglesInventory).filter_by(id=c3_id).first()
+        c2_check = session.query(SinglesInventory).filter_by(id=c2_id).first()
+        assert c3_check.quantity == pre_qty_pika
+        assert c2_check.quantity == pre_qty_c2
+
+
+        # 5. Verify GET /tcg/receipt/<id> returns HTTP 200 with matching itemized prices
+        app = Flask(__name__, template_folder="../templates")
+        app.config["TESTING"] = True
+        app.config["DB_SESSION_FACTORY"] = Session
+        app.register_blueprint(addon_bp)
+
+        with app.test_client() as client:
+            receipt_resp = client.get(f"/tcg/receipt/{txn.id}")
+            assert receipt_resp.status_code == 200
+            content = receipt_resp.data.decode()
+            assert "Lightning Bolt" in content
+            assert "Counterspell" in content
+            assert "35.00" in content
+            assert (txn.transaction_number in content or txn.receipt_number in content)
+
+        session.close()
+
+    def test_api_checkout_submit_route(self, isolated_db):
+        """Test the POST /tcg/api/checkout/submit endpoint."""
+        Session = sessionmaker(bind=isolated_db)
+        app = Flask(__name__, template_folder="../templates")
+        app.config["TESTING"] = True
+        app.config["DB_SESSION_FACTORY"] = Session
+        app.config["ENABLE_CASH_DRAWER"] = False
+        app.register_blueprint(addon_bp)
+
+        session = Session()
+        c1 = session.query(SinglesInventory).filter_by(name="Lightning Bolt").first()
+
+        with app.test_client() as client:
+            resp = client.post("/tcg/api/checkout/submit", json={
+                "items": [{"id": c1.id, "quantity": 1}],
+                "tenders": {"cash": 20.00},
+                "discount": 0.0,
+                "notes": "Test sale",
+                "options": {
+                    "print_receipt": True,
+                    "kick_drawer": False
+                }
+            })
+            assert resp.status_code == 201
+            data = resp.get_json()
+            assert data["success"] is True
+            assert data["transaction"]["grand_total"] == pytest.approx(10.00)
+            assert data["change_due"] == pytest.approx(10.00)
+            assert data["receipt_url"].startswith("/tcg/receipt/")
+        session.close()
+

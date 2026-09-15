@@ -31,4 +31,6 @@ from routes import register  # noqa: E402, F401
 from routes import inventory  # noqa: E402, F401
 from routes import pricing  # noqa: E402, F401
 from routes import checkout  # noqa: E402, F401
+from routes import internal  # noqa: E402, F401
+
 

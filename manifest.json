@@ -12,5 +12,9 @@
   "dependencies": [
     "requests"
   ],
+  "settings": {
+    "enable_cash_drawer": false,
+    "enable_receipt_printer": true
+  },
   "settings_route": "/addons/tcg_pos/settings"
 }

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -158,6 +158,14 @@
             <input type="number" id="tenderCash" class="tender-input" min="0" step="0.01"
                    placeholder="0.00" autocomplete="off">
           </div>
+          <!-- Quick-select bill buttons -->
+          <div class="tender-quick-bills" style="display:flex; gap:0.35rem; margin-top:0.4rem; flex-wrap:wrap;">
+            <button type="button" class="btn-quick-bill" data-amount="5" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$5</button>
+            <button type="button" class="btn-quick-bill" data-amount="10" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$10</button>
+            <button type="button" class="btn-quick-bill" data-amount="20" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$20</button>
+            <button type="button" class="btn-quick-bill" data-amount="50" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$50</button>
+            <button type="button" class="btn-quick-bill" data-amount="100" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$100</button>
+          </div>
         </div>
 
         <div class="tender-input-group">
@@ -191,20 +199,32 @@
       <div class="tender-balance-row">
         <div class="tender-balance-item">
           <span class="tender-balance-label">Total Tendered</span>
-          <span id="tenderTotalDisplay" class="tender-balance-val tender-val-tendered">  <!-- Non-blocking Toast Feedback -->.00</span>
+          <span id="tenderTotalDisplay" class="tender-balance-val tender-val-tendered">$0.00</span>
         </div>
         <div class="tender-balance-item">
           <span class="tender-balance-label">Remaining</span>
-          <span id="tenderRemainingDisplay" class="tender-balance-val tender-val-remaining">  <!-- Non-blocking Toast Feedback -->.00</span>
+          <span id="tenderRemainingDisplay" class="tender-balance-val tender-val-remaining">$0.00</span>
         </div>
         <div class="tender-balance-item" id="tenderChangeDueGroup" style="display:none;">
           <span class="tender-balance-label">Change Due</span>
-          <span id="tenderChangeDueDisplay" class="tender-balance-val tender-val-change">  <!-- Non-blocking Toast Feedback -->.00</span>
+          <span id="tenderChangeDueDisplay" class="tender-balance-val tender-val-change">$0.00</span>
         </div>
       </div>
 
       <!-- Quick-fill buttons -->
       <div class="tender-quick-fills" id="tenderQuickFills"></div>
+
+      <!-- Peripheral Options -->
+      <div class="tender-options-row" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: #cbd5e1;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="optPrintReceipt" checked>
+          <span>Print Thermal Receipt</span>
+        </label>
+        <label id="optKickDrawerWrap" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="optKickDrawer">
+          <span>Kick Cash Drawer</span>
+        </label>
+      </div>
 
       <!-- Action Buttons -->
       <div class="tender-modal-actions">

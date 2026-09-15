@@ -220,15 +220,23 @@ class TCGTransaction(Base):
     __tablename__ = "tcg_transactions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    receipt_number = Column(String(64), unique=True, nullable=False, index=True)
+    transaction_number = Column(String(64), unique=True, nullable=False, index=True)
+    receipt_number = Column(String(64), nullable=True)
 
     # Financial Totals
     subtotal = Column(Float, nullable=False, default=0.0)
     tax_rate = Column(Float, nullable=False, default=0.0)      # e.g. 0.0825 for 8.25%
     tax_amount = Column(Float, nullable=False, default=0.0)
+    tax_total = Column(Float, nullable=False, default=0.0)
+    discount_total = Column(Float, nullable=False, default=0.0)
     grand_total = Column(Float, nullable=False, default=0.0)
     total_tendered = Column(Float, nullable=False, default=0.0)
     change_due = Column(Float, nullable=False, default=0.0)
+
+    # Tender & Customer Details
+    payment_method = Column(String(32), nullable=False, default="cash")  # 'cash', 'card', 'store_credit', 'split'
+    tender_details = Column(PolymorphicJSON, nullable=False, default=dict)
+    customer_id = Column(String(64), nullable=True)
 
     # Status: 'completed' | 'voided' | 'refunded'
     status = Column(String(32), nullable=False, default="completed")
@@ -255,20 +263,43 @@ class TCGTransaction(Base):
                            cascade="all, delete-orphan", lazy="selectin")
 
     __table_args__ = (
+        Index("ix_tcg_txn_number", "transaction_number"),
         Index("ix_tcg_txn_status", "status"),
         Index("ix_tcg_txn_created", "created_at"),
     )
 
+    def __init__(self, **kwargs):
+        # Sync transaction_number and receipt_number
+        if "receipt_number" in kwargs and "transaction_number" not in kwargs:
+            kwargs["transaction_number"] = kwargs["receipt_number"]
+        elif "transaction_number" in kwargs and "receipt_number" not in kwargs:
+            kwargs["receipt_number"] = kwargs["transaction_number"]
+
+        # Sync tax_amount and tax_total
+        if "tax_amount" in kwargs and "tax_total" not in kwargs:
+            kwargs["tax_total"] = kwargs["tax_amount"]
+        elif "tax_total" in kwargs and "tax_amount" not in kwargs:
+            kwargs["tax_amount"] = kwargs["tax_total"]
+
+        super().__init__(**kwargs)
+
     def to_dict(self) -> Dict[str, Any]:
+        txn_num = self.transaction_number or self.receipt_number
         return {
             "id": self.id,
-            "receipt_number": self.receipt_number,
+            "transaction_number": txn_num,
+            "receipt_number": txn_num,
             "subtotal": self.subtotal,
             "tax_rate": self.tax_rate,
             "tax_amount": self.tax_amount,
+            "tax_total": self.tax_total or self.tax_amount,
+            "discount_total": self.discount_total,
             "grand_total": self.grand_total,
             "total_tendered": self.total_tendered,
             "change_due": self.change_due,
+            "payment_method": self.payment_method,
+            "tender_details": self.tender_details if isinstance(self.tender_details, dict) else {},
+            "customer_id": self.customer_id,
             "status": self.status,
             "cashier_id": self.cashier_id,
             "notes": self.notes,
@@ -293,39 +324,107 @@ class TCGTransactionItem(Base):
                             nullable=False, index=True)
 
     # Inventory reference (nullable — item may be deleted later)
+    singles_inventory_id = Column(Integer, ForeignKey("singles_inventory.id", ondelete="SET NULL"),
+                                  nullable=True, index=True)
     inventory_id = Column(Integer, ForeignKey("singles_inventory.id", ondelete="SET NULL"),
-                          nullable=True, index=True)
+                          nullable=True)
 
     # Point-in-time snapshot
-    name = Column(String(255), nullable=False)
+    item_name = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=True)
     sku = Column(String(64), nullable=True)
     game = Column(String(32), nullable=False, default="mtg")
     set_code = Column(String(32), nullable=False)
+    collector_number = Column(String(32), nullable=True)
     condition = Column(String(8), nullable=False)
     finish = Column(String(32), nullable=False)
-    quantity_sold = Column(Integer, nullable=False, default=1)
-    unit_price = Column(Float, nullable=False, default=0.0)          # Sell price at time of sale
-    cost_basis_snapshot = Column(Float, nullable=False, default=0.0) # COGS per unit at time of sale
-    line_total = Column(Float, nullable=False, default=0.0)          # unit_price * quantity_sold
+
+    quantity = Column(Integer, nullable=False, default=1)
+    quantity_sold = Column(Integer, nullable=True)
+
+    unit_cost_basis = Column(Float, nullable=False, default=0.0)      # COGS per unit at time of sale
+    cost_basis_snapshot = Column(Float, nullable=True)
+
+    unit_sell_price = Column(Float, nullable=False, default=0.0)      # Sell price at time of sale
+    unit_price = Column(Float, nullable=True)
+
+    total_sell_price = Column(Float, nullable=False, default=0.0)     # unit_sell_price * quantity
+    line_total = Column(Float, nullable=True)
+
+    api_metadata = Column(PolymorphicJSON, nullable=False, default=dict)
 
     # Relationship back-reference
     transaction = relationship("TCGTransaction", back_populates="items")
 
+    def __init__(self, **kwargs):
+        # Sync item_name and name
+        if "name" in kwargs and "item_name" not in kwargs:
+            kwargs["item_name"] = kwargs["name"]
+        elif "item_name" in kwargs and "name" not in kwargs:
+            kwargs["name"] = kwargs["item_name"]
+
+        # Sync inventory_id and singles_inventory_id
+        if "inventory_id" in kwargs and "singles_inventory_id" not in kwargs:
+            kwargs["singles_inventory_id"] = kwargs["inventory_id"]
+        elif "singles_inventory_id" in kwargs and "inventory_id" not in kwargs:
+            kwargs["inventory_id"] = kwargs["singles_inventory_id"]
+
+        # Sync quantity and quantity_sold
+        if "quantity_sold" in kwargs and "quantity" not in kwargs:
+            kwargs["quantity"] = kwargs["quantity_sold"]
+        elif "quantity" in kwargs and "quantity_sold" not in kwargs:
+            kwargs["quantity_sold"] = kwargs["quantity"]
+
+        # Sync unit_cost_basis and cost_basis_snapshot
+        if "cost_basis_snapshot" in kwargs and "unit_cost_basis" not in kwargs:
+            kwargs["unit_cost_basis"] = kwargs["cost_basis_snapshot"]
+        elif "unit_cost_basis" in kwargs and "cost_basis_snapshot" not in kwargs:
+            kwargs["cost_basis_snapshot"] = kwargs["unit_cost_basis"]
+
+        # Sync unit_sell_price and unit_price
+        if "unit_price" in kwargs and "unit_sell_price" not in kwargs:
+            kwargs["unit_sell_price"] = kwargs["unit_price"]
+        elif "unit_sell_price" in kwargs and "unit_price" not in kwargs:
+            kwargs["unit_price"] = kwargs["unit_sell_price"]
+
+        # Sync total_sell_price and line_total
+        if "line_total" in kwargs and "total_sell_price" not in kwargs:
+            kwargs["total_sell_price"] = kwargs["line_total"]
+        elif "total_sell_price" in kwargs and "line_total" not in kwargs:
+            kwargs["line_total"] = kwargs["total_sell_price"]
+
+        super().__init__(**kwargs)
+
     def to_dict(self) -> Dict[str, Any]:
+        i_name = self.item_name or self.name
+        inv_id = self.singles_inventory_id or self.inventory_id
+        qty = self.quantity if self.quantity is not None else (self.quantity_sold or 1)
+        cogs = self.unit_cost_basis if self.unit_cost_basis is not None else (self.cost_basis_snapshot or 0.0)
+        u_price = self.unit_sell_price if self.unit_sell_price is not None else (self.unit_price or 0.0)
+        t_price = self.total_sell_price if self.total_sell_price is not None else (self.line_total or (u_price * qty))
+
         return {
             "id": self.id,
             "transaction_id": self.transaction_id,
-            "inventory_id": self.inventory_id,
-            "name": self.name,
+            "singles_inventory_id": inv_id,
+            "inventory_id": inv_id,
+            "item_name": i_name,
+            "name": i_name,
             "sku": self.sku,
             "game": self.game,
             "set_code": self.set_code,
+            "collector_number": self.collector_number,
             "condition": self.condition,
             "finish": self.finish,
-            "quantity_sold": self.quantity_sold,
-            "unit_price": self.unit_price,
-            "cost_basis_snapshot": self.cost_basis_snapshot,
-            "line_total": self.line_total,
+            "quantity": qty,
+            "quantity_sold": qty,
+            "unit_cost_basis": cogs,
+            "cost_basis_snapshot": cogs,
+            "unit_sell_price": u_price,
+            "unit_price": u_price,
+            "total_sell_price": t_price,
+            "line_total": t_price,
+            "api_metadata": self.api_metadata if isinstance(self.api_metadata, dict) else {},
         }
 
 

@@ -10,17 +10,22 @@ decrements during checkout.
 """
 
 from datetime import datetime, timezone
+import logging
 import re
+import threading
 from typing import Any, Dict, List, Optional
 from flask import current_app, jsonify, render_template, request
 from sqlalchemy.orm import Session
 
-from models import SinglesInventory, get_db_session
+from models import SinglesInventory, TCGTransaction, get_db_session
+from services.checkout_service import CheckoutService, InsufficientStockError, InvalidTenderError
 
 try:
     from plugin import addon_bp
 except ImportError:
     from ..plugin import addon_bp
+
+log = logging.getLogger(__name__)
 
 
 def _resolve_session() -> Session:
@@ -241,3 +246,152 @@ def api_register_decrement():
     finally:
         if not is_external_session:
             session.close()
+
+
+# ---------------------------------------------------------------------------
+# GET /tcg/api/register/customer — Core Customer Lookup Bridge
+# ---------------------------------------------------------------------------
+
+@addon_bp.route("/api/register/customer", methods=["GET"])
+def api_register_customer():
+    """
+    Customer lookup endpoint bridging to OpenPOS Core.
+    Resolves customer by 14-character NFC UID, phone, email, or name.
+    """
+    identifier = request.args.get("q", "").strip()
+    if not identifier:
+        return jsonify({"found": False, "error": "Query parameter 'q' is required."}), 400
+
+    from services.core_customer_client import CoreCustomerClient
+    client = CoreCustomerClient(base_url=current_app.config.get("CORE_BASE_URL", "http://127.0.0.1:5000"))
+    customer = client.resolve_customer(identifier)
+    if customer:
+        return jsonify({"found": True, "customer": customer})
+    return jsonify({"found": False, "error": f"Customer '{identifier}' not found."}), 404
+
+
+# ---------------------------------------------------------------------------
+# POST /tcg/api/checkout/submit
+# ---------------------------------------------------------------------------
+
+@addon_bp.route("/api/checkout/submit", methods=["POST"])
+def api_checkout_submit():
+    """
+    Submits a register sale transaction.
+    Atomically verifies stock, decrements inventory, snapshots COGS,
+    and commits the transaction record.
+
+    Payload format:
+    {
+      "items": [{"id": 1, "quantity": 2}, {"id": 4, "quantity": 1}],
+      "tenders": {"cash": 50.00, "card": 0.00, "store_credit": 12.50},
+      "customer_id": 42,
+      "discount": 0.0,
+      "notes": "",
+      "options": {
+        "print_receipt": true,
+        "kick_drawer": false
+      }
+    }
+    """
+    raw_data = request.get_json(silent=True)
+    if not raw_data or not isinstance(raw_data, dict):
+        return jsonify({"success": False, "error": "Missing or invalid JSON request body."}), 400
+
+    items = raw_data.get("items") or raw_data.get("cart") or []
+    tenders = raw_data.get("tenders") or {}
+    discount = float(raw_data.get("discount", 0.0))
+    tax_rate = float(raw_data.get("tax_rate", current_app.config.get("DEFAULT_TAX_RATE", 0.0)))
+    notes = raw_data.get("notes")
+    customer_id = raw_data.get("customer_id")
+    options = raw_data.get("options") or {}
+
+    if not items:
+        return jsonify({"success": False, "error": "Cart is empty."}), 400
+    if not tenders:
+        return jsonify({"success": False, "error": "No payment tender provided."}), 400
+
+    # Calculate store credit tender amount
+    credit_amount = 0.0
+    if isinstance(tenders, dict):
+        credit_amount = float(tenders.get("store_credit", 0.0))
+    elif isinstance(tenders, list):
+        for t in tenders:
+            if isinstance(t, dict) and (t.get("tender_type") == "store_credit" or t.get("type") == "store_credit"):
+                credit_amount += float(t.get("amount", 0.0))
+
+    if credit_amount > 0 and not customer_id:
+        return jsonify({"success": False, "error": "customer_id is required when tendering Store Credit."}), 400
+
+    session = _resolve_session()
+    is_external_session = hasattr(current_app, "db_session") and current_app.db_session is session
+
+    try:
+        txn = CheckoutService.process_sale(
+            cart_items=items,
+            tenders=tenders,
+            tax_rate=tax_rate,
+            discount=discount,
+            notes=notes,
+            customer_id=customer_id,
+            session=session,
+        )
+
+        # If store credit was tendered, redeem via OpenPOS Core ledger
+        if credit_amount > 0 and customer_id:
+            from services.core_customer_client import CoreCustomerClient
+            import requests
+            client = CoreCustomerClient(base_url=current_app.config.get("CORE_BASE_URL", "http://127.0.0.1:5000"))
+            try:
+                client.redeem_store_credit(
+                    customer_id=int(customer_id),
+                    amount=credit_amount,
+                    transaction_number=txn.transaction_number or txn.receipt_number
+                )
+            except requests.exceptions.HTTPError as he:
+                session.rollback()
+                error_msg = "Store Credit redemption failed: Insufficient funds or invalid customer."
+                if he.response is not None and he.response.text:
+                    error_msg = f"Store Credit redemption failed: {he.response.text}"
+                return jsonify({"success": False, "error": error_msg}), 400
+            except Exception as ce:
+                session.rollback()
+                log.warning("[CheckoutSubmit] Core customer credit error: %s", ce)
+                return jsonify({"success": False, "error": f"Store credit service error: {str(ce)}"}), 400
+
+        # Hardware drawer kick option
+        enable_drawer = current_app.config.get("ENABLE_CASH_DRAWER", False)
+        if options.get("kick_drawer") and enable_drawer:
+            hub_url = current_app.config.get("HARDWARE_HUB_URL", "http://127.0.0.1:5000")
+
+            def _async_kick():
+                try:
+                    import requests
+                    requests.post(f"{hub_url.rstrip('/')}/hardware/drawer/kick", timeout=1.5)
+                except Exception as exc:
+                    log.warning("[CheckoutSubmit] Cash drawer kick failed: %s", exc)
+
+            threading.Thread(target=_async_kick, daemon=True).start()
+
+        return jsonify({
+            "success": True,
+            "transaction": txn.to_dict(),
+            "change_due": txn.change_due,
+            "receipt_url": f"/tcg/receipt/{txn.id}",
+        }), 201
+
+    except InsufficientStockError as ise:
+        session.rollback()
+        return jsonify({"success": False, "error": str(ise)}), 400
+    except (InvalidTenderError, ValueError) as ve:
+        session.rollback()
+        return jsonify({"success": False, "error": str(ve)}), 400
+    except Exception as e:
+        session.rollback()
+        log.exception("[CheckoutSubmit] Unexpected error during checkout: %s", e)
+        return jsonify({"success": False, "error": f"Checkout failed: {str(e)}"}), 500
+    finally:
+        if not is_external_session:
+            session.close()
+
+
