@@ -545,6 +545,125 @@ def test_price_volatility_drift_protection_alert_populated(seed_inventory, test_
     session.close()
 
 
+def test_refresh_with_mock_fifty_percent_spike_and_in_stock_mtg(seed_inventory, test_db):
+    """
+    EXPLICIT REQUIREMENT:
+    1. Trigger a test refresh with game="mtg" and in_stock_only=True.
+    2. Mock the provider fetch_market_prices calls to return updated prices (including one card with a +50% price spike).
+    3. Assert the price spike card has api_metadata['last_price_drift'] populated.
+    4. Assert only in-stock MTG cards are queried.
+    5. Assert Pokémon cards remain untouched.
+    """
+    _, session_factory = test_db
+    service = MarketRefresherService()
+
+    queried_card_ids = []
+
+    def mock_fetch(card_id):
+        queried_card_ids.append(card_id)
+        if card_id == "mtg-sol-ring":
+            # Baseline is $10.00 -> $15.00 (+50.0% price spike!)
+            return {"market": 15.00, "low": 13.50, "foil": 25.00}
+        if card_id == "mtg-counterspell":
+            # Baseline is $1.50 -> $1.55 (+3.3% normal drift)
+            return {"market": 1.55, "low": 1.30}
+        if card_id == "mtg-black-lotus":
+            # Out of stock card, should never be reached
+            return {"market": 6000.00}
+        return {"market": 10.00}
+
+    mock_mtg_provider = MagicMock()
+    mock_mtg_provider.fetch_market_prices.side_effect = mock_fetch
+
+    mock_poke_provider = MagicMock()
+    mock_poke_provider.fetch_market_prices.side_effect = lambda cid: pytest.fail(f"Pokémon provider called for {cid}!")
+
+    # Record snapshot of Pokémon cards prior to execution
+    session = session_factory()
+    before_pokemon = {
+        p.provider_card_id: {
+            "market_price": p.market_price,
+            "sell_price": p.sell_price,
+            "quantity": p.quantity,
+            "updated_at": p.updated_at,
+            "api_metadata": dict(p.api_metadata or {})
+        }
+        for p in session.query(SinglesInventory).filter_by(game="pokemon").all()
+    }
+    session.close()
+
+    with patch("services.market_refresher.get_provider") as mock_gp:
+        mock_gp.side_effect = lambda g: mock_mtg_provider if g == "mtg" else mock_poke_provider
+
+        # 1. Trigger test refresh with game="mtg" and in_stock_only=True
+        job = PriceRefreshJob(
+            job_id="test-50pct-spike-job",
+            game="mtg",
+            in_stock_only=True,
+            max_age_days=0
+        )
+        service._run_refresh(
+            job=job,
+            in_stock_only=True,
+            max_age_days=0,
+            auto_adjust_sell_price=False,
+            margin_multiplier=1.0,
+            session_factory=session_factory
+        )
+
+        assert job.status == "completed"
+        assert job.total_items == 2
+        assert job.processed_items == 2
+        assert job.updated_items == 2
+        assert job.volatility_alerts_count == 1
+
+    # 2. Assert only in-stock MTG cards are queried
+    assert set(queried_card_ids) == {"mtg-sol-ring", "mtg-counterspell"}, (
+        f"Expected only in-stock MTG cards to be queried, got: {queried_card_ids}"
+    )
+    assert "mtg-black-lotus" not in queried_card_ids, "Out-of-stock MTG card was queried!"
+    assert "swsh3-136" not in queried_card_ids, "Pokémon card was queried!"
+    assert "base1-4" not in queried_card_ids, "Pokémon card was queried!"
+    mock_poke_provider.fetch_market_prices.assert_not_called()
+
+    # 3. Assert the price spike card has api_metadata['last_price_drift'] populated
+    session = session_factory()
+    sol_ring = session.query(SinglesInventory).filter_by(provider_card_id="mtg-sol-ring").first()
+    assert sol_ring.market_price == 15.00
+    assert "last_price_drift" in (sol_ring.api_metadata or {}), "Sol Ring missing last_price_drift!"
+    assert sol_ring.api_metadata["last_price_drift"] == {
+        "old": 10.0,
+        "new": 15.0,
+        "change_pct": 50.0
+    }
+    assert sol_ring.api_metadata.get("price_alert") is True
+
+    # 4. Assert non-spike MTG card (Counterspell) updated without price alert
+    counterspell = session.query(SinglesInventory).filter_by(provider_card_id="mtg-counterspell").first()
+    assert counterspell.market_price == 1.55
+    assert "last_price_drift" not in (counterspell.api_metadata or {}), "Counterspell falsely triggered drift alert!"
+    assert counterspell.api_metadata.get("price_alert") is not True
+
+    # 5. Assert out-of-stock MTG card (Black Lotus) was untouched
+    black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
+    assert black_lotus.market_price == 5000.00
+    assert "last_price_drift" not in (black_lotus.api_metadata or {})
+
+    # 6. Assert Pokémon cards remain untouched
+    after_pokemon = session.query(SinglesInventory).filter_by(game="pokemon").all()
+    assert len(after_pokemon) == 2
+    for p_card in after_pokemon:
+        orig = before_pokemon[p_card.provider_card_id]
+        assert p_card.market_price == orig["market_price"]
+        assert p_card.sell_price == orig["sell_price"]
+        assert p_card.quantity == orig["quantity"]
+        assert p_card.updated_at == orig["updated_at"]
+        assert p_card.api_metadata == orig["api_metadata"]
+        assert "last_price_drift" not in (p_card.api_metadata or {})
+
+    session.close()
+
+
 def test_auto_adjust_sell_price_with_margin(seed_inventory, test_db):
     """Verifies auto_adjust_sell_price updates sell_price = round(new_market * multiplier, 2)."""
     _, session_factory = test_db
