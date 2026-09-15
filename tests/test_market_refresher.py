@@ -909,6 +909,80 @@ def test_cancellation_flow(seed_inventory, test_db):
         assert job.finished_at is not None, "finished_at timestamp was not recorded on abort!"
 
 
+def test_cancellation_stops_background_thread_without_unhandled_exceptions(seed_inventory, test_db):
+    """
+    EXPLICIT REQUIREMENT:
+    Verify cancellation stops the job without raising unhandled thread exceptions.
+    1. Spawns an asynchronous background worker thread via start_refresh().
+    2. Hooks into threading.excepthook to intercept any unhandled thread exceptions.
+    3. Calls cancel_refresh() mid-run to abort the thread cooperatively.
+    4. Asserts thread terminates cleanly (is_alive() is False) without triggering excepthook.
+    5. Asserts job status is 'cancelled', finished_at is set, and job.errors is empty.
+    """
+    import threading
+    _, session_factory = test_db
+    service = MarketRefresherService()
+
+    caught_thread_exceptions = []
+    orig_excepthook = threading.excepthook
+
+    def custom_thread_excepthook(args):
+        caught_thread_exceptions.append(args)
+        orig_excepthook(args)
+
+    threading.excepthook = custom_thread_excepthook
+
+    try:
+        first_item_event = threading.Event()
+
+        def slow_fetch(card_id):
+            first_item_event.set()
+            time.sleep(0.05)
+            return {"market": 15.00}
+
+        mock_provider = MagicMock()
+        mock_provider.fetch_market_prices.side_effect = slow_fetch
+
+        with patch("services.market_refresher.get_provider", return_value=mock_provider):
+            job_id = service.start_refresh(
+                game=None,  # all 10 cards
+                in_stock_only=False,
+                max_age_days=0,
+                session_factory=session_factory
+            )
+
+            # Wait until worker has started and entered the processing loop
+            assert first_item_event.wait(timeout=2.0), "Worker did not reach first item!"
+            assert service.is_running() is True
+            assert service._worker_thread.is_alive() is True
+
+            # Trigger cancellation while thread is active
+            cancelled = service.cancel_refresh()
+            assert cancelled is True
+
+            # Wait for thread to finish cleanly
+            service._worker_thread.join(timeout=3.0)
+
+            # 1. Assert thread has cleanly stopped
+            assert service._worker_thread.is_alive() is False, "Worker thread did not terminate after cancel!"
+            assert service.is_running() is False
+
+            # 2. Assert NO unhandled thread exceptions occurred
+            assert len(caught_thread_exceptions) == 0, (
+                f"Unhandled thread exceptions were raised during cancellation: {caught_thread_exceptions}"
+            )
+
+            # 3. Assert job state transitioned to 'cancelled' without fatal error logs
+            status = service.get_status()
+            assert status["status"] == "cancelled"
+            assert service.job.status == "cancelled"
+            assert service.job.errors == [], f"Unexpected job errors recorded: {service.job.errors}"
+            assert service.job.finished_at is not None
+            assert service.job.processed_items < service.job.total_items
+
+    finally:
+        threading.excepthook = orig_excepthook
+
 
 # --- Flask REST Endpoint Tests ---
 
