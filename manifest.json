@@ -2,13 +2,15 @@
   "id": "tcg_pos",
   "name": "TCG POS & Singles Engine",
   "version": "1.0.0",
-  "author": "Cave404",
+  "author": "OpenPOS Platform",
   "description": "Magic: The Gathering & TCG singles intake, market pricing, and buylist calculator for Open-POS Community.",
   "category": "Desktop_Apps",
   "icon": "cards.png",
   "entrypoint": "plugin.py",
   "requires_db": true,
   "min_core_version": "1.0.8",
-  "dependencies": ["requests"],
+  "dependencies": [
+    "requests"
+  ],
   "settings_route": "/addons/tcg_pos/settings"
 }
