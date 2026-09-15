@@ -1,0 +1,16 @@
+CREATE EXTENSION IF NOT EXISTS citext;
+
+CREATE TABLE IF NOT EXISTS singles_inventory (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    game TEXT NOT NULL DEFAULT 'mtg',
+    name TEXT NOT NULL,
+    clean_name CITEXT NOT NULL,
+    set_code CITEXT NOT NULL,
+    collector_number TEXT NOT NULL,
+    condition TEXT NOT NULL DEFAULT 'NM',
+    finish TEXT NOT NULL DEFAULT 'nonfoil',
+    price_market NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    price_acquired NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    status TEXT NOT NULL DEFAULT 'IN_STOCK',
+    date_added TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
