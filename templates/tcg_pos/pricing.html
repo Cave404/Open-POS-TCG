@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG POS - Market Pricing Engine</title>
+
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Addon Stylesheets -->
+  <link rel="stylesheet" href="{{ url_for('tcg_pos.static', filename='tcg_pos/css/inventory.css') }}">
+  <link rel="stylesheet" href="{{ url_for('tcg_pos.static', filename='tcg_pos/css/pricing.css') }}">
+</head>
+<body>
+
+  <!-- OpenPOS Standard Navigation Bar (Zero Dead-End Navigation) -->
+  <header class="tcg-navbar">
+    <div class="tcg-nav-brand">
+      <span class="tcg-brand-badge">TCG POS</span>
+      <h1 class="tcg-nav-title">TCG POS - Market Pricing Engine</h1>
+    </div>
+    <div class="tcg-nav-actions">
+      <div class="tcg-status-indicator">
+        <span class="status-dot"></span>
+        <span>Pricing Engine Active (v1.0.0)</span>
+      </div>
+
+      <!-- Shortcut to Inventory Workstation -->
+      <a href="/tcg/inventory" class="btn-nav-action" title="Open Inventory Management">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
+        <span>Inventory Workstation</span>
+      </a>
+
+      <!-- Shortcut to Intake Workstation -->
+      <a href="/tcg/intake" class="btn-nav-action" title="Open Intake & Buylist Workstation">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Intake & Buylist</span>
+      </a>
+
+      <!-- Return to Core Dashboard Action (Zero Dead-End Navigation Constraint) -->
+      <a href="/" class="btn-nav-action primary" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Main Pricing Engine Layout -->
+  <main class="pricing-container">
+
+    <!-- Top Configuration & Trigger Deck -->
+    <section class="pricing-card config-deck">
+      <div class="deck-header">
+        <div class="deck-header-info">
+          <h2>Market Sync Controls</h2>
+          <p>Configure selective scope, stale-age threshold, and pricing safety rules before launching upstream sync.</p>
+        </div>
+        <div class="deck-header-status">
+          <span id="job-status-pill" class="status-pill idle">Idle</span>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <!-- 1. Selective Game Scope -->
+        <div class="config-section">
+          <label class="config-label">Target Collectible Games</label>
+          <div class="game-selector-group">
+            <label class="game-toggle-btn active" data-game="all">
+              <input type="radio" name="game-filter" value="all" checked />
+              <span>All Games</span>
+            </label>
+            <label class="game-toggle-btn" data-game="mtg">
+              <input type="radio" name="game-filter" value="mtg" />
+              <span>Magic (MTG)</span>
+            </label>
+            <label class="game-toggle-btn" data-game="pokemon">
+              <input type="radio" name="game-filter" value="pokemon" />
+              <span>Pokémon TCG</span>
+            </label>
+          </div>
+          <span class="config-hint">Refresh prices selectively for specific inventory catalogs.</span>
+        </div>
+
+        <!-- 2. Inventory Scope & Stale Threshold -->
+        <div class="config-section">
+          <label class="config-label">Sync Scope & Staleness</label>
+          <div class="config-inputs-row">
+            <label class="checkbox-container">
+              <input type="checkbox" id="check-in-stock-only" checked />
+              <span class="checkbox-label">In-Stock Only (Qty &gt; 0)</span>
+            </label>
+
+            <div class="select-wrapper">
+              <label for="select-max-age" class="inline-label">Threshold:</label>
+              <select id="select-max-age" class="config-select">
+                <option value="1" selected>Stale &gt; 1 Day</option>
+                <option value="3">Stale &gt; 3 Days</option>
+                <option value="7">Stale &gt; 7 Days</option>
+                <option value="0">Force Full Sync (All Cards)</option>
+              </select>
+            </div>
+          </div>
+          <span class="config-hint">Optimizes throughput by skipping recent or zero-quantity cards.</span>
+        </div>
+
+        <!-- 3. POS Shelf Price Safety Switch -->
+        <div class="config-section">
+          <label class="config-label">POS Shelf Pricing Policy</label>
+          <div class="config-inputs-row">
+            <label class="checkbox-container danger-tint">
+              <input type="checkbox" id="check-auto-adjust" />
+              <span class="checkbox-label">Auto-update Shelf Price (sell_price)</span>
+            </label>
+            
+            <div class="multiplier-input-wrapper">
+              <label for="input-margin-mult" class="inline-label">Multiplier:</label>
+              <input type="number" id="input-margin-mult" class="config-input-num" value="1.00" step="0.05" min="0.50" max="3.00" disabled />
+            </div>
+          </div>
+          <span class="config-hint">Safety-first: OFF keeps retail shelf prices fixed and updates market benchmarks only.</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons Row -->
+      <div class="config-actions-row">
+        <button type="button" id="btn-start-sync" class="btn-primary-sync">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>Start Market Sync</span>
+        </button>
+
+        <button type="button" id="btn-cancel-sync" class="btn-cancel-sync" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          <span>Cancel Active Sync</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Real-time Progress & Telemetry Deck -->
+    <section id="progress-deck" class="pricing-card progress-deck" style="display: none;">
+      <div class="progress-header">
+        <div class="progress-title-col">
+          <h3>Synchronization Progress</h3>
+          <span id="current-card-label" class="current-card-label">Resolving catalog batch...</span>
+        </div>
+        <div class="progress-percent-label" id="progress-pct-label">0.0%</div>
+      </div>
+
+      <!-- Animated Progress Bar -->
+      <div class="progress-bar-track">
+        <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+
+      <!-- Telemetry Stats Matrix -->
+      <div class="progress-stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Processed / Total</span>
+          <span id="stat-progress-count" class="stat-val">0 / 0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Updated Prices</span>
+          <span id="stat-updated-count" class="stat-val highlight">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Volatility Alerts</span>
+          <span id="stat-alerts-count" class="stat-val warning">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Elapsed Time</span>
+          <span id="stat-elapsed-time" class="stat-val">0.0s</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Volatility Alerts & Review Table Deck -->
+    <section class="pricing-card alerts-deck">
+      <div class="alerts-header">
+        <div>
+          <h2>Price Volatility Alerts (Drift &ge; 20%)</h2>
+          <p>These inventory cards experienced significant price swings upstream. Review and apply or dismiss adjustments.</p>
+        </div>
+        <button type="button" id="btn-refresh-alerts" class="btn-refresh-alerts" title="Refresh Alerts Table">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Refresh Alerts</span>
+        </button>
+      </div>
+
+      <div class="alerts-table-wrapper">
+        <table class="tcg-table" id="alerts-table">
+          <thead>
+            <tr>
+              <th>Card / Item</th>
+              <th>Game</th>
+              <th>Finish / Cond</th>
+              <th>Old Market</th>
+              <th>New Market</th>
+              <th>Price Shift</th>
+              <th>Shelf Price</th>
+              <th style="text-align: right;">Review Action</th>
+            </tr>
+          </thead>
+          <tbody id="alerts-table-body">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
+
+        <!-- Empty State -->
+        <div id="alerts-empty-state" class="empty-state">
+          <div class="empty-icon">&#10003;</div>
+          <h3>No Volatility Alerts Pending</h3>
+          <p>All inventory market prices are stable within normal drift tolerances.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Client-side Logic Script -->
+  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/pricing.js') }}"></script>
+</body>
+</html>
