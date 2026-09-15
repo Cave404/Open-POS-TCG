@@ -441,3 +441,279 @@ body {
   from { transform: translateX(50px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
+
+
+/* ==========================================================================
+   Tender Modal — Split Payment
+   ========================================================================== */
+
+.tender-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.tender-modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 520px;
+  padding: 1.75rem 2rem;
+  box-shadow: 0 24px 60px -8px rgba(0,0,0,0.7), 0 0 40px -10px rgba(56,189,248,0.12);
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.tender-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.tender-modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.tender-modal-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.tender-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  transition: color 0.15s;
+}
+.tender-modal-close:hover { color: var(--accent-rose); }
+
+/* Amount Due Banner */
+.tender-due-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(56, 189, 248, 0.07);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.tender-due-amount {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent-sky);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tender Inputs Grid */
+.tender-inputs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+
+.tender-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tender-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.tender-icon { font-size: 1rem; }
+
+.tender-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.tender-input-wrap:focus-within {
+  border-color: var(--accent-sky);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+.tender-currency {
+  padding: 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border-right: 1px solid var(--border-color);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.tender-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.6rem 0.75rem;
+}
+
+.tender-ref-input {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 400 !important;
+  color: var(--text-muted) !important;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.tender-ref-input:focus {
+  border-color: var(--accent-sky) !important;
+  color: var(--text-main) !important;
+}
+
+/* Running Balance Row */
+.tender-balance-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+.tender-balance-item {
+  flex: 1;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  text-align: center;
+}
+.tender-balance-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+}
+.tender-balance-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tender-val-tendered { color: var(--accent-emerald); }
+.tender-val-remaining { color: var(--accent-amber); }
+.tender-val-change    { color: var(--accent-emerald); }
+
+/* Quick-fill pills */
+.tender-quick-fills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+.tender-quick-btn {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: var(--accent-sky);
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s;
+}
+.tender-quick-btn:hover { background: rgba(56, 189, 248, 0.18); }
+
+/* Modal Action Buttons */
+.tender-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.tender-btn-cancel {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  background: rgba(244, 63, 94, 0.06);
+  color: var(--accent-rose);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.tender-btn-cancel:hover { background: rgba(244, 63, 94, 0.14); }
+
+.tender-btn-confirm {
+  flex: 2;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: linear-gradient(135deg, var(--accent-emerald), #059669);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.tender-btn-confirm:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+.tender-btn-confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+/* Receipt success toast enhancement */
+.toast-receipt-link {
+  display: inline-block;
+  margin-left: 0.5rem;
+  color: var(--accent-sky);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

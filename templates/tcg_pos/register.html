@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -45,7 +45,7 @@
       <!-- Fast Search / Scanner Wedge Input -->
       <div class="search-wrapper">
         <div class="search-input-box">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon">ðŸ”</span>
           <input 
             type="text" 
             id="registerSearchInput" 
@@ -75,7 +75,7 @@
 
         <!-- Empty Cart Placeholder State -->
         <div id="cartEmptyState" style="text-align: center; padding: 4rem 1.5rem; color: var(--text-subtle);">
-          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🏷️</div>
+          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">ðŸ·ï¸</div>
           <div style="font-size: 1.1rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">
             Cart is Empty
           </div>
@@ -114,7 +114,7 @@
 
       <div>
         <button type="button" id="btnCompleteCheckout" class="btn-checkout" disabled>
-          <span>💳</span>
+          <span>ðŸ’³</span>
           <span>Complete Checkout</span>
         </button>
         <button type="button" id="btnClearCart" class="btn-nav-return" style="width: 100%; justify-content: center; margin-top: 0.75rem; border: 1px solid rgba(244, 63, 94, 0.2); color: var(--accent-rose);">
@@ -125,6 +125,97 @@
 
   </main>
 
+
+  <!-- ================================================================
+       Tender Modal — Split Payment (Cash / Card / Store Credit)
+       ================================================================ -->
+  <div id="tenderModal" class="tender-modal-overlay" role="dialog" aria-modal="true"
+       aria-labelledby="tenderModalTitle" style="display:none;">
+    <div class="tender-modal-box">
+
+      <div class="tender-modal-header">
+        <div>
+          <h2 id="tenderModalTitle" class="tender-modal-title">Complete Payment</h2>
+          <p class="tender-modal-sub">Split payment across Cash, Card, and Store Credit.</p>
+        </div>
+        <button type="button" class="tender-modal-close" id="btnCloseTenderModal" aria-label="Close">&times;</button>
+      </div>
+
+      <!-- Amount Due Summary -->
+      <div class="tender-due-bar">
+        <span>Amount Due</span>
+        <span id="tenderAmountDue" class="tender-due-amount">  <!-- Non-blocking Toast Feedback -->.00</span>
+      </div>
+
+      <!-- Tender Inputs -->
+      <div class="tender-inputs-grid">
+        <div class="tender-input-group">
+          <label class="tender-label" for="tenderCash">
+            <span class="tender-icon">💵</span> Cash
+          </label>
+          <div class="tender-input-wrap">
+            <span class="tender-currency">$</span>
+            <input type="number" id="tenderCash" class="tender-input" min="0" step="0.01"
+                   placeholder="0.00" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="tender-input-group">
+          <label class="tender-label" for="tenderCard">
+            <span class="tender-icon">💳</span> Card
+          </label>
+          <div class="tender-input-wrap">
+            <span class="tender-currency">$</span>
+            <input type="number" id="tenderCard" class="tender-input" min="0" step="0.01"
+                   placeholder="0.00" autocomplete="off">
+          </div>
+          <input type="text" id="tenderCardRef" class="tender-input tender-ref-input"
+                 placeholder="Card last-4 or auth (optional)" autocomplete="off">
+        </div>
+
+        <div class="tender-input-group">
+          <label class="tender-label" for="tenderStoreCredit">
+            <span class="tender-icon">🏷️</span> Store Credit
+          </label>
+          <div class="tender-input-wrap">
+            <span class="tender-currency">$</span>
+            <input type="number" id="tenderStoreCredit" class="tender-input" min="0" step="0.01"
+                   placeholder="0.00" autocomplete="off">
+          </div>
+          <input type="text" id="tenderCreditRef" class="tender-input tender-ref-input"
+                 placeholder="Account / Trade ref (optional)" autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Running Balance -->
+      <div class="tender-balance-row">
+        <div class="tender-balance-item">
+          <span class="tender-balance-label">Total Tendered</span>
+          <span id="tenderTotalDisplay" class="tender-balance-val tender-val-tendered">  <!-- Non-blocking Toast Feedback -->.00</span>
+        </div>
+        <div class="tender-balance-item">
+          <span class="tender-balance-label">Remaining</span>
+          <span id="tenderRemainingDisplay" class="tender-balance-val tender-val-remaining">  <!-- Non-blocking Toast Feedback -->.00</span>
+        </div>
+        <div class="tender-balance-item" id="tenderChangeDueGroup" style="display:none;">
+          <span class="tender-balance-label">Change Due</span>
+          <span id="tenderChangeDueDisplay" class="tender-balance-val tender-val-change">  <!-- Non-blocking Toast Feedback -->.00</span>
+        </div>
+      </div>
+
+      <!-- Quick-fill buttons -->
+      <div class="tender-quick-fills" id="tenderQuickFills"></div>
+
+      <!-- Action Buttons -->
+      <div class="tender-modal-actions">
+        <button type="button" id="btnCancelTender" class="tender-btn-cancel">Cancel</button>
+        <button type="button" id="btnConfirmTender" class="tender-btn-confirm" disabled>
+          <span>✓</span> Confirm &amp; Settle
+        </button>
+      </div>
+
+    </div>
+  </div>
   <!-- Non-blocking Toast Feedback -->
   <div id="toastContainer" class="toast-container"></div>
 
@@ -133,3 +224,4 @@
   <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/register.js') }}"></script>
 </body>
 </html>
+

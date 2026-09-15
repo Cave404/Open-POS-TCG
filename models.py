@@ -21,10 +21,11 @@ from sqlalchemy import (
     UniqueConstraint,
     Index,
     CheckConstraint,
+    ForeignKey,
     create_engine
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 
 # Declarative Base for OpenPOS-TCG models
 Base = declarative_base()
@@ -207,4 +208,156 @@ class SinglesInventory(Base):
             "api_metadata": self.api_metadata if isinstance(self.api_metadata, dict) else {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class TCGTransaction(Base):
+    """
+    Header record for a completed POS transaction.
+    Captures totals, tax, tender summary, receipt reference, and optional
+    hardware outcome metadata (cash drawer, receipt spool).
+    """
+    __tablename__ = "tcg_transactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    receipt_number = Column(String(64), unique=True, nullable=False, index=True)
+
+    # Financial Totals
+    subtotal = Column(Float, nullable=False, default=0.0)
+    tax_rate = Column(Float, nullable=False, default=0.0)      # e.g. 0.0825 for 8.25%
+    tax_amount = Column(Float, nullable=False, default=0.0)
+    grand_total = Column(Float, nullable=False, default=0.0)
+    total_tendered = Column(Float, nullable=False, default=0.0)
+    change_due = Column(Float, nullable=False, default=0.0)
+
+    # Status: 'completed' | 'voided' | 'refunded'
+    status = Column(String(32), nullable=False, default="completed")
+
+    # Optional notes / cashier identifier
+    cashier_id = Column(String(64), nullable=True)
+    notes = Column(Text, nullable=True)
+
+    # Hardware outcome JSON: {cash_drawer: bool, receipt_spooled: bool, errors: [...]}
+    hardware_meta = Column(PolymorphicJSON, nullable=False, default=dict)
+
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    # Relationships
+    items = relationship("TCGTransactionItem", back_populates="transaction",
+                         cascade="all, delete-orphan", lazy="selectin")
+    tenders = relationship("TCGTransactionTender", back_populates="transaction",
+                           cascade="all, delete-orphan", lazy="selectin")
+
+    __table_args__ = (
+        Index("ix_tcg_txn_status", "status"),
+        Index("ix_tcg_txn_created", "created_at"),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "receipt_number": self.receipt_number,
+            "subtotal": self.subtotal,
+            "tax_rate": self.tax_rate,
+            "tax_amount": self.tax_amount,
+            "grand_total": self.grand_total,
+            "total_tendered": self.total_tendered,
+            "change_due": self.change_due,
+            "status": self.status,
+            "cashier_id": self.cashier_id,
+            "notes": self.notes,
+            "hardware_meta": self.hardware_meta if isinstance(self.hardware_meta, dict) else {},
+            "items": [item.to_dict() for item in (self.items or [])],
+            "tenders": [t.to_dict() for t in (self.tenders or [])],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class TCGTransactionItem(Base):
+    """
+    Line item within a TCGTransaction.
+    Snapshots inventory state at time of sale (name, SKU, price, COGS) so historical
+    records are not affected by future inventory edits.
+    """
+    __tablename__ = "tcg_transaction_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_id = Column(Integer, ForeignKey("tcg_transactions.id", ondelete="CASCADE"),
+                            nullable=False, index=True)
+
+    # Inventory reference (nullable — item may be deleted later)
+    inventory_id = Column(Integer, ForeignKey("singles_inventory.id", ondelete="SET NULL"),
+                          nullable=True, index=True)
+
+    # Point-in-time snapshot
+    name = Column(String(255), nullable=False)
+    sku = Column(String(64), nullable=True)
+    game = Column(String(32), nullable=False, default="mtg")
+    set_code = Column(String(32), nullable=False)
+    condition = Column(String(8), nullable=False)
+    finish = Column(String(32), nullable=False)
+    quantity_sold = Column(Integer, nullable=False, default=1)
+    unit_price = Column(Float, nullable=False, default=0.0)          # Sell price at time of sale
+    cost_basis_snapshot = Column(Float, nullable=False, default=0.0) # COGS per unit at time of sale
+    line_total = Column(Float, nullable=False, default=0.0)          # unit_price * quantity_sold
+
+    # Relationship back-reference
+    transaction = relationship("TCGTransaction", back_populates="items")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "transaction_id": self.transaction_id,
+            "inventory_id": self.inventory_id,
+            "name": self.name,
+            "sku": self.sku,
+            "game": self.game,
+            "set_code": self.set_code,
+            "condition": self.condition,
+            "finish": self.finish,
+            "quantity_sold": self.quantity_sold,
+            "unit_price": self.unit_price,
+            "cost_basis_snapshot": self.cost_basis_snapshot,
+            "line_total": self.line_total,
+        }
+
+
+class TCGTransactionTender(Base):
+    """
+    Individual tender row within a TCGTransaction.
+    A single transaction may have multiple tender rows (split payment).
+    tender_type: 'cash' | 'card' | 'store_credit'
+    """
+    __tablename__ = "tcg_transaction_tenders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_id = Column(Integer, ForeignKey("tcg_transactions.id", ondelete="CASCADE"),
+                            nullable=False, index=True)
+
+    tender_type = Column(String(32), nullable=False)   # cash | card | store_credit
+    amount = Column(Float, nullable=False, default=0.0)
+    # change_due only meaningful for cash tenders; 0.0 for card/store_credit
+    change_due = Column(Float, nullable=False, default=0.0)
+
+    # Optional: card last-4, auth code, store credit account ref
+    reference = Column(String(128), nullable=True)
+
+    # Relationship back-reference
+    transaction = relationship("TCGTransaction", back_populates="tenders")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "transaction_id": self.transaction_id,
+            "tender_type": self.tender_type,
+            "amount": self.amount,
+            "change_due": self.change_due,
+            "reference": self.reference,
         }

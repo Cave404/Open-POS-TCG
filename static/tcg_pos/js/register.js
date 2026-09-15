@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OpenPOS TCG Addon - Register Checkout Client Engine
  * File: static/tcg_pos/js/register.js
  */
@@ -270,57 +270,192 @@
   });
 
   // ---------------------------------------------------------------------------
-  // 5. Checkout & Inventory Decrement
+  // 5. Tender Modal — Split Payment Engine
   // ---------------------------------------------------------------------------
-  async function completeCheckout() {
+
+  const tenderModal         = document.getElementById("tenderModal");
+  const tenderAmountDue     = document.getElementById("tenderAmountDue");
+  const tenderCashInput     = document.getElementById("tenderCash");
+  const tenderCardInput     = document.getElementById("tenderCard");
+  const tenderCardRef       = document.getElementById("tenderCardRef");
+  const tenderCreditInput   = document.getElementById("tenderStoreCredit");
+  const tenderCreditRef     = document.getElementById("tenderCreditRef");
+  const tenderTotalDisplay  = document.getElementById("tenderTotalDisplay");
+  const tenderRemaining     = document.getElementById("tenderRemainingDisplay");
+  const tenderChangeGroup   = document.getElementById("tenderChangeDueGroup");
+  const tenderChangeDisplay = document.getElementById("tenderChangeDueDisplay");
+  const tenderQuickFills    = document.getElementById("tenderQuickFills");
+  const btnConfirmTender    = document.getElementById("btnConfirmTender");
+  const btnCancelTender     = document.getElementById("btnCancelTender");
+  const btnCloseTenderModal = document.getElementById("btnCloseTenderModal");
+
+  let _grandTotal = 0;
+
+  function _calcGrandTotal() {
+    let sub = 0;
+    cart.forEach(item => { sub += item.sell_price * item.quantity; });
+    const tax = sub * TAX_RATE;
+    return Math.round((sub + tax) * 100) / 100;
+  }
+
+  function openTenderModal() {
     if (cart.length === 0) return;
+    _grandTotal = _calcGrandTotal();
 
-    btnCompleteCheckout.disabled = true;
-    btnCompleteCheckout.textContent = "Processing Checkout...";
+    // Reset inputs
+    tenderCashInput.value   = "";
+    tenderCardInput.value   = "";
+    tenderCardRef.value     = "";
+    tenderCreditInput.value = "";
+    tenderCreditRef.value   = "";
 
-    const decrementPayload = cart.map((item) => ({
-      id: item.id,
-      quantity: item.quantity
-    }));
+    tenderAmountDue.textContent = `$${_grandTotal.toFixed(2)}`;
+
+    // Quick-fill cash buttons
+    tenderQuickFills.innerHTML = "";
+    const amounts = [
+      _grandTotal,
+      Math.ceil(_grandTotal),
+      Math.ceil(_grandTotal / 5) * 5,
+      Math.ceil(_grandTotal / 10) * 10,
+      Math.ceil(_grandTotal / 20) * 20,
+    ];
+    const seen = new Set();
+    amounts.forEach(amt => {
+      if (seen.has(amt) || amt <= 0) return;
+      seen.add(amt);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tender-quick-btn";
+      btn.textContent = `Cash $${amt.toFixed(2)}`;
+      btn.onclick = () => {
+        tenderCashInput.value = amt.toFixed(2);
+        recalcTender();
+        tenderCashInput.focus();
+      };
+      tenderQuickFills.appendChild(btn);
+    });
+
+    recalcTender();
+    tenderModal.style.display = "flex";
+    setTimeout(() => tenderCashInput.focus(), 80);
+  }
+
+  function closeTenderModal() {
+    tenderModal.style.display = "none";
+  }
+
+  function recalcTender() {
+    const cash   = parseFloat(tenderCashInput.value)   || 0;
+    const card   = parseFloat(tenderCardInput.value)   || 0;
+    const credit = parseFloat(tenderCreditInput.value) || 0;
+    const total  = Math.round((cash + card + credit) * 100) / 100;
+    const remaining = Math.round((_grandTotal - total) * 100) / 100;
+    const change    = remaining < 0 ? Math.abs(remaining) : 0;
+
+    tenderTotalDisplay.textContent = `$${total.toFixed(2)}`;
+    tenderRemaining.textContent    = `$${Math.max(0, remaining).toFixed(2)}`;
+
+    if (change > 0) {
+      tenderChangeGroup.style.display = "";
+      tenderChangeDisplay.textContent = `$${change.toFixed(2)}`;
+    } else {
+      tenderChangeGroup.style.display = "none";
+    }
+
+    btnConfirmTender.disabled = total < _grandTotal - 0.001;
+  }
+
+  [tenderCashInput, tenderCardInput, tenderCreditInput].forEach(el => {
+    el.addEventListener("input", recalcTender);
+  });
+
+  btnCancelTender.addEventListener("click", closeTenderModal);
+  btnCloseTenderModal.addEventListener("click", closeTenderModal);
+  tenderModal.addEventListener("click", (e) => {
+    if (e.target === tenderModal) closeTenderModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && tenderModal.style.display !== "none") closeTenderModal();
+  });
+
+  async function confirmCheckout() {
+    const cash   = parseFloat(tenderCashInput.value)   || 0;
+    const card   = parseFloat(tenderCardInput.value)   || 0;
+    const credit = parseFloat(tenderCreditInput.value) || 0;
+
+    if (cash + card + credit < _grandTotal - 0.001) {
+      showToast("Insufficient tender — please enter the full amount.", true);
+      return;
+    }
+
+    btnConfirmTender.disabled = true;
+    btnConfirmTender.innerHTML = `<span>⏳</span> Settling...`;
+
+    const tenders = [];
+    if (cash   > 0) tenders.push({ tender_type: "cash",         amount: cash,   reference: null });
+    if (card   > 0) tenders.push({ tender_type: "card",         amount: card,   reference: tenderCardRef.value.trim() || null });
+    if (credit > 0) tenders.push({ tender_type: "store_credit", amount: credit, reference: tenderCreditRef.value.trim() || null });
+
+    const payload = {
+      cart: cart.map(item => ({
+        inventory_id: item.id,
+        quantity: item.quantity,
+        unit_price: item.sell_price,
+      })),
+      tenders,
+      tax_rate: TAX_RATE,
+    };
 
     try {
-      const resp = await fetch("/tcg/api/register/decrement", {
+      const resp = await fetch("/tcg/api/checkout/settle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(decrementPayload)
+        body: JSON.stringify(payload),
       });
       const data = await resp.json();
 
       if (data.success) {
         if (window.hardwareBridge) window.hardwareBridge.chimeSuccess();
-
-        // Optional cash drawer kick
-        try {
-          fetch("/hardware/drawer/kick", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pin: 2 })
-          }).catch(() => {});
-        } catch (e) {}
-
-        showToast(`Checkout complete! Sold ${data.decremented ? data.decremented.length : 0} singles.`, false);
+        closeTenderModal();
         cart = [];
         renderCart();
+
+        const receiptLink = data.receipt_url
+          ? `<a class="toast-receipt-link" href="${data.receipt_url}" target="_blank">View Receipt</a>`
+          : "";
+        const changeMsg = data.change_due > 0 ? ` Change: $${data.change_due.toFixed(2)}.` : "";
+        showToast(`Sale complete! Receipt #${data.receipt_number}.${changeMsg} ${receiptLink}`, false);
+
+        if (data.hardware_warnings && data.hardware_warnings.length) {
+          data.hardware_warnings.forEach(w => console.warn("[Register] HW warning:", w));
+        }
       } else {
         if (window.hardwareBridge) window.hardwareBridge.chimeError();
-        showToast(data.error || "Checkout failed due to insufficient inventory.", true);
+        showToast(data.error || "Settlement failed. Please try again.", true);
       }
     } catch (err) {
-      console.error("[Register] Checkout transaction fault:", err);
+      console.error("[Register] Checkout settle fault:", err);
       if (window.hardwareBridge) window.hardwareBridge.chimeError();
-      showToast("Network fault executing checkout.", true);
+      showToast("Network fault during settlement.", true);
     } finally {
-      btnCompleteCheckout.disabled = cart.length === 0;
-      btnCompleteCheckout.innerHTML = `<span>💳</span> Complete Checkout`;
+      btnConfirmTender.disabled = false;
+      btnConfirmTender.innerHTML = `<span>&#10003;</span> Confirm &amp; Settle`;
     }
   }
 
-  btnCompleteCheckout.addEventListener("click", completeCheckout);
+  btnConfirmTender.addEventListener("click", confirmCheckout);
+
+  [tenderCashInput, tenderCardInput, tenderCreditInput].forEach(el => {
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !btnConfirmTender.disabled) confirmCheckout();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6. Main Checkout Button -> Opens Tender Modal
+  // ---------------------------------------------------------------------------
+  btnCompleteCheckout.addEventListener("click", openTenderModal);
 
   btnClearCart.addEventListener("click", () => {
     if (cart.length === 0) return;

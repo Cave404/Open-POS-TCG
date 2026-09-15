@@ -1,0 +1,269 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG POS Receipt — {{ txn.receipt_number }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ---- Base Reset ---- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ---- Screen Wrapper (centers the 80mm slip on-screen) ---- */
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      font-family: 'Inter', sans-serif;
+      color: #e2e8f0;
+    }
+
+    /* ---- Action Bar (hidden on print) ---- */
+    .receipt-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      width: 100%;
+      max-width: 340px;
+    }
+    .receipt-actions a,
+    .receipt-actions button {
+      flex: 1;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      transition: opacity 0.15s;
+      text-align: center;
+    }
+    .receipt-actions a {
+      background: rgba(255,255,255,0.08);
+      color: #94a3b8;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .receipt-actions button {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+    }
+    .receipt-actions a:hover, .receipt-actions button:hover { opacity: 0.85; }
+
+    /* ---- The Paper Slip ---- */
+    .receipt-slip {
+      background: #fff;
+      color: #111;
+      width: 100%;
+      max-width: 302px;   /* 80 mm @ 96 dpi */
+      padding: 1.25rem 1rem;
+      border-radius: 4px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    /* ---- Header ---- */
+    .rcp-header {
+      text-align: center;
+      border-bottom: 1px dashed #ccc;
+      padding-bottom: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .rcp-store-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .rcp-store-sub { font-size: 10px; color: #555; margin-top: 2px; }
+    .rcp-receipt-num {
+      font-size: 10px;
+      font-weight: 600;
+      color: #333;
+      margin-top: 6px;
+    }
+    .rcp-date { font-size: 10px; color: #666; }
+
+    /* ---- Section Labels ---- */
+    .rcp-section-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin: 0.6rem 0 0.3rem;
+    }
+
+    /* ---- Line Items ---- */
+    .rcp-items { border-top: 1px solid #eee; padding-top: 0.4rem; }
+    .rcp-item { margin-bottom: 0.45rem; }
+    .rcp-item-name {
+      font-weight: 600;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .rcp-item-detail { color: #666; font-size: 9.5px; }
+    .rcp-item-price {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+    }
+
+    /* ---- Totals ---- */
+    .rcp-totals {
+      border-top: 1px dashed #ccc;
+      margin-top: 0.6rem;
+      padding-top: 0.6rem;
+    }
+    .rcp-total-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+      margin-bottom: 3px;
+    }
+    .rcp-total-row.grand {
+      font-size: 13px;
+      font-weight: 700;
+      border-top: 1px solid #111;
+      padding-top: 4px;
+      margin-top: 4px;
+    }
+    .rcp-total-row.change { color: #16a34a; font-weight: 600; }
+
+    /* ---- Tenders ---- */
+    .rcp-tenders { border-top: 1px dashed #ccc; padding-top: 0.5rem; margin-top: 0.5rem; }
+    .rcp-tender-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+      text-transform: capitalize;
+      margin-bottom: 2px;
+    }
+
+    /* ---- Footer ---- */
+    .rcp-footer {
+      border-top: 1px dashed #ccc;
+      text-align: center;
+      margin-top: 0.75rem;
+      padding-top: 0.6rem;
+      font-size: 9.5px;
+      color: #777;
+    }
+    .rcp-footer p { margin-bottom: 2px; }
+
+    /* ---- Print Media ---- */
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+        display: block;
+      }
+      .receipt-actions { display: none !important; }
+      .receipt-slip {
+        box-shadow: none;
+        max-width: 100%;
+        border-radius: 0;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Action Bar (screen only) -->
+  <div class="receipt-actions" id="receipt-action-bar">
+    <a href="/tcg/register" id="btn-back-register">← Back to Register</a>
+    <button type="button" id="btn-print-receipt" onclick="window.print()">🖨 Print Receipt</button>
+  </div>
+
+  <!-- 80mm Thermal Slip -->
+  <div class="receipt-slip" id="receipt-slip" role="main" aria-label="Transaction Receipt">
+
+    <!-- Store Header -->
+    <div class="rcp-header">
+      <div class="rcp-store-name">TCG Singles POS</div>
+      <div class="rcp-store-sub">Powered by Open-POS</div>
+      <div class="rcp-receipt-num">Receipt #{{ txn.receipt_number }}</div>
+      <div class="rcp-date">{{ txn.created_at.strftime('%b %d, %Y  %I:%M %p') if txn.created_at else '' }}</div>
+      {% if txn.cashier_id %}
+        <div class="rcp-date">Cashier: {{ txn.cashier_id }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Line Items -->
+    <div class="rcp-section-label">Items</div>
+    <div class="rcp-items">
+      {% for item in txn.items %}
+      <div class="rcp-item">
+        <div class="rcp-item-name">{{ item.name }}</div>
+        <div class="rcp-item-detail">
+          {{ item.set_code | upper }} · {{ item.condition }} · {{ item.finish | replace('_', ' ') | title }}
+          {% if item.sku %} · {{ item.sku }}{% endif %}
+        </div>
+        <div class="rcp-item-price">
+          <span>{{ item.quantity_sold }} × ${{ '%.2f' % item.unit_price }}</span>
+          <span>${{ '%.2f' % item.line_total }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Totals -->
+    <div class="rcp-totals">
+      <div class="rcp-total-row">
+        <span>Subtotal</span>
+        <span>${{ '%.2f' % txn.subtotal }}</span>
+      </div>
+      <div class="rcp-total-row">
+        <span>Tax ({{ '%.2f' % (txn.tax_rate * 100) }}%)</span>
+        <span>${{ '%.2f' % txn.tax_amount }}</span>
+      </div>
+      <div class="rcp-total-row grand">
+        <span>TOTAL</span>
+        <span>${{ '%.2f' % txn.grand_total }}</span>
+      </div>
+    </div>
+
+    <!-- Tenders -->
+    <div class="rcp-section-label">Payment</div>
+    <div class="rcp-tenders">
+      {% for tender in txn.tenders %}
+      <div class="rcp-tender-row">
+        <span>{{ tender.tender_type | replace('_', ' ') | title }}</span>
+        <span>${{ '%.2f' % tender.amount }}</span>
+      </div>
+      {% endfor %}
+      <div class="rcp-total-row">
+        <span>Total Tendered</span>
+        <span>${{ '%.2f' % txn.total_tendered }}</span>
+      </div>
+      {% if txn.change_due > 0 %}
+      <div class="rcp-total-row change">
+        <span>Change Due</span>
+        <span>${{ '%.2f' % txn.change_due }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <div class="rcp-footer">
+      <p>Thank you for shopping with us!</p>
+      <p>All sales final on singles.</p>
+      <p>Status: {{ txn.status | title }}</p>
+    </div>
+  </div>
+
+</body>
+</html>
