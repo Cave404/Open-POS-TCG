@@ -48,6 +48,27 @@ class NormalizedCard:
     api_metadata: Dict[str, Any] = field(default_factory=dict)
     fetched_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializes NormalizedCard dataclass instance into a clean JSON-serializable dictionary."""
+        return {
+            "provider_card_id": self.provider_card_id,
+            "game": self.game,
+            "name": self.name,
+            "clean_name": self.clean_name,
+            "set_code": self.set_code,
+            "set_name": self.set_name,
+            "collector_number": self.collector_number,
+            "rarity": self.rarity,
+            "image_uri": self.image_uri,
+            "cached_image_path": self.cached_image_path,
+            "market_price": self.market_price,
+            "low_price": self.low_price,
+            "foil_price": self.foil_price,
+            "etched_price": self.etched_price,
+            "api_metadata": self.api_metadata if isinstance(self.api_metadata, dict) else {},
+            "fetched_at": self.fetched_at
+        }
+
 
 class BaseTCGProvider(ABC):
     """

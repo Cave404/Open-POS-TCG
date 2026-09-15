@@ -19,16 +19,52 @@ from sqlalchemy import (
     JSON,
     UniqueConstraint,
     Index,
-    CheckConstraint
+    CheckConstraint,
+    create_engine
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 # Declarative Base for OpenPOS-TCG models
 Base = declarative_base()
 
 # Cross-dialect JSON mapping: JSONB on PostgreSQL, standard JSON on SQLite
 PolymorphicJSON = JSON().with_variant(JSONB, "postgresql")
+
+_SESSION_FACTORY = None
+
+
+def init_db(engine=None, database_uri: Optional[str] = None):
+    """
+    Initializes database tables and creates the session factory.
+    Safely creates tables if they do not yet exist.
+    """
+    global _SESSION_FACTORY
+    if engine is None:
+        if database_uri:
+            engine = create_engine(database_uri, echo=False)
+        else:
+            from pathlib import Path
+            data_dir = Path.cwd() / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            db_path = data_dir / "openpos.db"
+            engine = create_engine(f"sqlite:///{db_path.as_posix()}", echo=False)
+    Base.metadata.create_all(engine)
+    _SESSION_FACTORY = sessionmaker(bind=engine)
+    return engine
+
+
+def get_db_session(engine=None):
+    """
+    Returns an active SQLAlchemy session.
+    Allows passing an explicit engine (e.g. for in-memory testing).
+    """
+    global _SESSION_FACTORY
+    if engine is not None:
+        return sessionmaker(bind=engine)()
+    if _SESSION_FACTORY is None:
+        init_db()
+    return _SESSION_FACTORY()
 
 
 class SinglesInventory(Base):
