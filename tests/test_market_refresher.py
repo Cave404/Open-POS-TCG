@@ -60,7 +60,10 @@ def test_db():
 
 @pytest.fixture
 def seed_inventory(test_db):
-    """Seeds test singles inventory covering games, conditions, and stock levels."""
+    """
+    Seeds test singles inventory with 5 MTG cards and 5 Pokémon cards
+    in an in-memory SQLite database (with a realistic mix of in-stock and zero-stock items).
+    """
     _, session_factory = test_db
     session = session_factory()
 
@@ -68,7 +71,8 @@ def seed_inventory(test_db):
     recent_time = datetime.now(timezone.utc) - timedelta(minutes=30)
 
     items = [
-        # MTG 1: In-stock, stale (will test +150% price spike)
+        # --- MTG Cards (5 cards: 3 in-stock, 2 zero-stock) ---
+        # MTG 1: In-stock (qty 4), stale (will test price spikes)
         SinglesInventory(
             game="mtg",
             provider_card_id="mtg-sol-ring",
@@ -87,7 +91,7 @@ def seed_inventory(test_db):
             updated_at=stale_time,
             api_metadata={}
         ),
-        # MTG 2: Out of stock (quantity = 0), stale
+        # MTG 2: Out of stock (qty 0), stale
         SinglesInventory(
             game="mtg",
             provider_card_id="mtg-black-lotus",
@@ -106,7 +110,7 @@ def seed_inventory(test_db):
             updated_at=stale_time,
             api_metadata={}
         ),
-        # MTG 3: In-stock, recently updated (within 30 mins)
+        # MTG 3: In-stock (qty 2), recently updated (within 30 mins)
         SinglesInventory(
             game="mtg",
             provider_card_id="mtg-counterspell",
@@ -125,7 +129,47 @@ def seed_inventory(test_db):
             updated_at=recent_time,
             api_metadata={}
         ),
-        # Pokémon 1: In-stock, stale (normal drift +5%)
+        # MTG 4: In-stock (qty 3), stale
+        SinglesInventory(
+            game="mtg",
+            provider_card_id="mtg-lightning-bolt",
+            name="Lightning Bolt",
+            clean_name="lightning bolt",
+            set_code="2ed",
+            set_name="Unlimited Edition",
+            collector_number="162",
+            rarity="common",
+            finish="nonfoil",
+            condition="LP",
+            quantity=3,
+            cost_basis=1.20,
+            sell_price=3.00,
+            market_price=3.00,
+            updated_at=stale_time,
+            api_metadata={}
+        ),
+        # MTG 5: Out of stock (qty 0), stale
+        SinglesInventory(
+            game="mtg",
+            provider_card_id="mtg-mox-pearl",
+            name="Mox Pearl",
+            clean_name="mox pearl",
+            set_code="lea",
+            set_name="Limited Edition Alpha",
+            collector_number="263",
+            rarity="rare",
+            finish="nonfoil",
+            condition="NM",
+            quantity=0,
+            cost_basis=1800.00,
+            sell_price=2500.00,
+            market_price=2500.00,
+            updated_at=stale_time,
+            api_metadata={}
+        ),
+
+        # --- Pokémon Cards (5 cards: 3 in-stock, 2 zero-stock) ---
+        # Pokémon 1: In-stock (qty 5), stale (normal drift +5%)
         SinglesInventory(
             game="pokemon",
             provider_card_id="swsh3-136",
@@ -144,7 +188,7 @@ def seed_inventory(test_db):
             updated_at=stale_time,
             api_metadata={}
         ),
-        # Pokémon 2: In-stock, stale (will test -30% price crash)
+        # Pokémon 2: In-stock (qty 1), stale (will test -30% price crash)
         SinglesInventory(
             game="pokemon",
             provider_card_id="base1-4",
@@ -160,6 +204,63 @@ def seed_inventory(test_db):
             cost_basis=80.00,
             sell_price=100.00,
             market_price=100.00,
+            updated_at=stale_time,
+            api_metadata={}
+        ),
+        # Pokémon 3: Out of stock (qty 0), stale
+        SinglesInventory(
+            game="pokemon",
+            provider_card_id="swsh4-25",
+            name="Mewtwo",
+            clean_name="mewtwo",
+            set_code="swsh4",
+            set_name="Vivid Voltage",
+            collector_number="25",
+            rarity="rare",
+            finish="nonfoil",
+            condition="NM",
+            quantity=0,
+            cost_basis=25.00,
+            sell_price=45.00,
+            market_price=45.00,
+            updated_at=stale_time,
+            api_metadata={}
+        ),
+        # Pokémon 4: In-stock (qty 8), stale
+        SinglesInventory(
+            game="pokemon",
+            provider_card_id="sv1-1",
+            name="Bulbasaur",
+            clean_name="bulbasaur",
+            set_code="sv1",
+            set_name="Scarlet & Violet",
+            collector_number="1",
+            rarity="common",
+            finish="nonfoil",
+            condition="NM",
+            quantity=8,
+            cost_basis=1.00,
+            sell_price=2.50,
+            market_price=2.50,
+            updated_at=stale_time,
+            api_metadata={}
+        ),
+        # Pokémon 5: Out of stock (qty 0), stale
+        SinglesInventory(
+            game="pokemon",
+            provider_card_id="base1-15",
+            name="Venusaur",
+            clean_name="venusaur",
+            set_code="base1",
+            set_name="Base Set",
+            collector_number="15",
+            rarity="rare holo",
+            finish="holo",
+            condition="LP",
+            quantity=0,
+            cost_basis=50.00,
+            sell_price=85.00,
+            market_price=85.00,
             updated_at=stale_time,
             api_metadata={}
         )
@@ -207,6 +308,44 @@ def test_provider_registry():
     assert get_provider("yugioh") is None
 
 
+def test_seed_database_five_mtg_and_five_pokemon_cards(seed_inventory, test_db):
+    """
+    EXPLICIT REQUIREMENT:
+    Seed an in-memory SQLite database with 5 MTG cards and 5 Pokémon cards
+    (some with zero stock, some in stock).
+    Verifies database composition, stock counts, and game partitioning.
+    """
+    _, session_factory = test_db
+    session = session_factory()
+
+    all_cards = session.query(SinglesInventory).all()
+    assert len(all_cards) == 10, f"Expected 10 total cards seeded, found {len(all_cards)}"
+
+    mtg_cards = [c for c in all_cards if c.game == "mtg"]
+    pokemon_cards = [c for c in all_cards if c.game == "pokemon"]
+
+    assert len(mtg_cards) == 5, f"Expected 5 MTG cards, found {len(mtg_cards)}"
+    assert len(pokemon_cards) == 5, f"Expected 5 Pokémon cards, found {len(pokemon_cards)}"
+
+    # Check stock distribution for MTG (some in stock, some zero stock)
+    mtg_in_stock = [c for c in mtg_cards if c.quantity > 0]
+    mtg_zero_stock = [c for c in mtg_cards if c.quantity == 0]
+    assert len(mtg_in_stock) == 3, f"Expected 3 in-stock MTG cards, found {len(mtg_in_stock)}"
+    assert len(mtg_zero_stock) == 2, f"Expected 2 zero-stock MTG cards, found {len(mtg_zero_stock)}"
+    assert {c.provider_card_id for c in mtg_in_stock} == {"mtg-sol-ring", "mtg-counterspell", "mtg-lightning-bolt"}
+    assert {c.provider_card_id for c in mtg_zero_stock} == {"mtg-black-lotus", "mtg-mox-pearl"}
+
+    # Check stock distribution for Pokémon (some in stock, some zero stock)
+    poke_in_stock = [c for c in pokemon_cards if c.quantity > 0]
+    poke_zero_stock = [c for c in pokemon_cards if c.quantity == 0]
+    assert len(poke_in_stock) == 3, f"Expected 3 in-stock Pokémon cards, found {len(poke_in_stock)}"
+    assert len(poke_zero_stock) == 2, f"Expected 2 zero-stock Pokémon cards, found {len(poke_zero_stock)}"
+    assert {c.provider_card_id for c in poke_in_stock} == {"swsh3-136", "base1-4", "sv1-1"}
+    assert {c.provider_card_id for c in poke_zero_stock} == {"swsh4-25", "base1-15"}
+
+    session.close()
+
+
 # --- Service Layer Tests ---
 
 def test_selective_game_execution(seed_inventory, test_db):
@@ -220,6 +359,12 @@ def test_selective_game_execution(seed_inventory, test_db):
             return {"market": 12.00, "low": 10.00}
         if provider_id == "mtg-black-lotus":
             return {"market": 5500.00, "low": 4800.00}
+        if provider_id == "mtg-counterspell":
+            return {"market": 1.75}
+        if provider_id == "mtg-lightning-bolt":
+            return {"market": 3.50}
+        if provider_id == "mtg-mox-pearl":
+            return {"market": 2700.00}
         if provider_id == "swsh3-136":
             return {"market": 99.00}
         return {"market": 1.00}
@@ -245,8 +390,8 @@ def test_selective_game_execution(seed_inventory, test_db):
         )
 
         assert job.status == "completed"
-        assert job.total_items == 3  # Only 3 MTG cards in DB
-        assert job.updated_items == 3
+        assert job.total_items == 5  # All 5 MTG cards in DB
+        assert job.updated_items == 5
 
     # Assert Pokémon provider was never called
     mock_poke.fetch_market_prices.assert_not_called()
@@ -255,25 +400,19 @@ def test_selective_game_execution(seed_inventory, test_db):
     session = session_factory()
     sol_ring = session.query(SinglesInventory).filter_by(provider_card_id="mtg-sol-ring").first()
     black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
+    lightning_bolt = session.query(SinglesInventory).filter_by(provider_card_id="mtg-lightning-bolt").first()
+    mox_pearl = session.query(SinglesInventory).filter_by(provider_card_id="mtg-mox-pearl").first()
     assert sol_ring.market_price == 12.00
     assert black_lotus.market_price == 5500.00
+    assert lightning_bolt.market_price == 3.50
+    assert mox_pearl.market_price == 2700.00
 
     # Assert Pokémon cards remain untouched
     pokemon_cards = session.query(SinglesInventory).filter_by(game="pokemon").all()
-    assert len(pokemon_cards) == 2, "Expected 2 Pokémon cards in test database"
+    assert len(pokemon_cards) == 5, "Expected 5 Pokémon cards in test database"
     for p_card in pokemon_cards:
-        if p_card.provider_card_id == "swsh3-136":
-            assert p_card.name == "Pikachu"
-            assert p_card.market_price == 20.00, f"Pikachu market_price was modified: {p_card.market_price}"
-            assert p_card.sell_price == 20.00, f"Pikachu sell_price was modified: {p_card.sell_price}"
-            assert p_card.quantity == 5, f"Pikachu quantity was modified: {p_card.quantity}"
-            assert "last_price_drift" not in (p_card.api_metadata or {}), "Pikachu api_metadata was modified!"
-        elif p_card.provider_card_id == "base1-4":
-            assert p_card.name == "Charizard"
-            assert p_card.market_price == 100.00, f"Charizard market_price was modified: {p_card.market_price}"
-            assert p_card.sell_price == 100.00, f"Charizard sell_price was modified: {p_card.sell_price}"
-            assert p_card.quantity == 1, f"Charizard quantity was modified: {p_card.quantity}"
-            assert "last_price_drift" not in (p_card.api_metadata or {}), "Charizard api_metadata was modified!"
+        assert "last_price_drift" not in (p_card.api_metadata or {}), f"Pokémon {p_card.name} api_metadata was modified!"
+        assert p_card.market_price == p_card.sell_price
     session.close()
 
 
@@ -322,7 +461,7 @@ def test_pokemon_cards_remain_untouched_when_refreshing_mtg(seed_inventory, test
     # Verify every Pokémon card in the database remains completely untouched
     session = session_factory()
     after_pokemon = session.query(SinglesInventory).filter_by(game="pokemon").all()
-    assert len(after_pokemon) == 2, "Expected exactly 2 Pokémon cards in database"
+    assert len(after_pokemon) == 5, "Expected exactly 5 Pokémon cards in database"
 
     for p_card in after_pokemon:
         orig = before_pokemon[p_card.provider_card_id]
@@ -356,18 +495,21 @@ def test_in_stock_only_filtering(seed_inventory, test_db):
             session_factory=session_factory
         )
 
-        # MTG has 2 in-stock cards (Sol Ring qty 4, Counterspell qty 2). Black Lotus is qty 0.
-        assert job.total_items == 2
-        assert job.processed_items == 2
+        # MTG has 3 in-stock cards (Sol Ring qty 4, Counterspell qty 2, Lightning Bolt qty 3)
+        assert job.total_items == 3
+        assert job.processed_items == 3
 
         # Assert only in-stock MTG cards are queried
         queried_ids = [call.args[0] for call in mock_provider.fetch_market_prices.call_args_list]
-        assert set(queried_ids) == {"mtg-sol-ring", "mtg-counterspell"}
+        assert set(queried_ids) == {"mtg-sol-ring", "mtg-counterspell", "mtg-lightning-bolt"}
         assert "mtg-black-lotus" not in queried_ids
+        assert "mtg-mox-pearl" not in queried_ids
 
     session = session_factory()
     black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
+    mox_pearl = session.query(SinglesInventory).filter_by(provider_card_id="mtg-mox-pearl").first()
     assert black_lotus.market_price == 5000.00  # Untouched
+    assert mox_pearl.market_price == 2500.00  # Untouched
     session.close()
 
 
@@ -409,35 +551,40 @@ def test_only_in_stock_mtg_cards_are_queried(seed_inventory, test_db):
         assert job.status == "completed"
 
     # ASSERT ONLY IN-STOCK MTG CARDS ARE QUERIED:
-    assert set(queried_card_ids) == {"mtg-sol-ring", "mtg-counterspell"}, (
+    assert set(queried_card_ids) == {"mtg-sol-ring", "mtg-counterspell", "mtg-lightning-bolt"}, (
         f"Expected only in-stock MTG cards to be queried, got: {queried_card_ids}"
     )
-    assert len(queried_card_ids) == 2
+    assert len(queried_card_ids) == 3
 
-    # Specifically assert out-of-stock MTG card was NOT queried
+    # Specifically assert out-of-stock MTG cards were NOT queried
     assert "mtg-black-lotus" not in queried_card_ids
+    assert "mtg-mox-pearl" not in queried_card_ids
 
-    # Specifically assert in-stock Pokémon cards were NOT queried
-    assert "swsh3-136" not in queried_card_ids
-    assert "base1-4" not in queried_card_ids
+    # Specifically assert Pokémon cards were NOT queried
+    for poke_id in ["swsh3-136", "base1-4", "swsh4-25", "sv1-1", "base1-15"]:
+        assert poke_id not in queried_card_ids
 
     # Verify in database:
     session = session_factory()
     # In-stock MTG cards were updated
     sol_ring = session.query(SinglesInventory).filter_by(provider_card_id="mtg-sol-ring").first()
     counterspell = session.query(SinglesInventory).filter_by(provider_card_id="mtg-counterspell").first()
+    lightning_bolt = session.query(SinglesInventory).filter_by(provider_card_id="mtg-lightning-bolt").first()
     assert sol_ring.market_price == 15.00
     assert counterspell.market_price == 15.00
+    assert lightning_bolt.market_price == 15.00
 
-    # Out-of-stock MTG card untouched
+    # Out-of-stock MTG cards untouched
     black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
+    mox_pearl = session.query(SinglesInventory).filter_by(provider_card_id="mtg-mox-pearl").first()
     assert black_lotus.market_price == 5000.00
+    assert mox_pearl.market_price == 2500.00
 
     # Pokémon cards untouched
-    pikachu = session.query(SinglesInventory).filter_by(provider_card_id="swsh3-136").first()
-    charizard = session.query(SinglesInventory).filter_by(provider_card_id="base1-4").first()
-    assert pikachu.market_price == 20.00
-    assert charizard.market_price == 100.00
+    for poke_id in ["swsh3-136", "base1-4", "swsh4-25", "sv1-1", "base1-15"]:
+        p_card = session.query(SinglesInventory).filter_by(provider_card_id=poke_id).first()
+        assert p_card.market_price == p_card.sell_price
+        assert "last_price_drift" not in (p_card.api_metadata or {})
     session.close()
 
 
@@ -461,9 +608,9 @@ def test_max_age_days_filtering(seed_inventory, test_db):
             session_factory=session_factory
         )
 
-        # Only Sol Ring and Black Lotus are stale > 1 day
-        assert job.total_items == 2
-        assert job.processed_items == 2
+        # 4 MTG cards are stale > 1 day (Sol Ring, Black Lotus, Lightning Bolt, Mox Pearl)
+        assert job.total_items == 4
+        assert job.processed_items == 4
 
     session = session_factory()
     counterspell = session.query(SinglesInventory).filter_by(provider_card_id="mtg-counterspell").first()
@@ -492,6 +639,10 @@ def test_price_volatility_drift_protection_alert_populated(seed_inventory, test_
         if card_id == "mtg-counterspell":
             # No change
             return {"market": 1.50}
+        if card_id == "mtg-lightning-bolt":
+            return {"market": 3.00}
+        if card_id == "sv1-1":
+            return {"market": 2.50}
         return {"market": 1.00}
 
     mock_provider = MagicMock()
@@ -567,6 +718,9 @@ def test_refresh_with_mock_fifty_percent_spike_and_in_stock_mtg(seed_inventory, 
         if card_id == "mtg-counterspell":
             # Baseline is $1.50 -> $1.55 (+3.3% normal drift)
             return {"market": 1.55, "low": 1.30}
+        if card_id == "mtg-lightning-bolt":
+            # Baseline is $3.00 -> $3.10 (+3.3% normal drift)
+            return {"market": 3.10, "low": 2.90}
         if card_id == "mtg-black-lotus":
             # Out of stock card, should never be reached
             return {"market": 6000.00}
@@ -612,18 +766,19 @@ def test_refresh_with_mock_fifty_percent_spike_and_in_stock_mtg(seed_inventory, 
         )
 
         assert job.status == "completed"
-        assert job.total_items == 2
-        assert job.processed_items == 2
-        assert job.updated_items == 2
+        assert job.total_items == 3
+        assert job.processed_items == 3
+        assert job.updated_items == 3
         assert job.volatility_alerts_count == 1
 
     # 2. Assert only in-stock MTG cards are queried
-    assert set(queried_card_ids) == {"mtg-sol-ring", "mtg-counterspell"}, (
+    assert set(queried_card_ids) == {"mtg-sol-ring", "mtg-counterspell", "mtg-lightning-bolt"}, (
         f"Expected only in-stock MTG cards to be queried, got: {queried_card_ids}"
     )
     assert "mtg-black-lotus" not in queried_card_ids, "Out-of-stock MTG card was queried!"
-    assert "swsh3-136" not in queried_card_ids, "Pokémon card was queried!"
-    assert "base1-4" not in queried_card_ids, "Pokémon card was queried!"
+    assert "mtg-mox-pearl" not in queried_card_ids, "Out-of-stock MTG card was queried!"
+    for poke_id in ["swsh3-136", "base1-4", "swsh4-25", "sv1-1", "base1-15"]:
+        assert poke_id not in queried_card_ids, f"Pokémon card {poke_id} was queried!"
     mock_poke_provider.fetch_market_prices.assert_not_called()
 
     # 3. Assert the price spike card has api_metadata['last_price_drift'] populated
@@ -638,20 +793,27 @@ def test_refresh_with_mock_fifty_percent_spike_and_in_stock_mtg(seed_inventory, 
     }
     assert sol_ring.api_metadata.get("price_alert") is True
 
-    # 4. Assert non-spike MTG card (Counterspell) updated without price alert
+    # 4. Assert non-spike MTG cards updated without price alert
     counterspell = session.query(SinglesInventory).filter_by(provider_card_id="mtg-counterspell").first()
     assert counterspell.market_price == 1.55
     assert "last_price_drift" not in (counterspell.api_metadata or {}), "Counterspell falsely triggered drift alert!"
     assert counterspell.api_metadata.get("price_alert") is not True
 
-    # 5. Assert out-of-stock MTG card (Black Lotus) was untouched
+    lightning_bolt = session.query(SinglesInventory).filter_by(provider_card_id="mtg-lightning-bolt").first()
+    assert lightning_bolt.market_price == 3.10
+    assert "last_price_drift" not in (lightning_bolt.api_metadata or {})
+
+    # 5. Assert out-of-stock MTG cards were untouched
     black_lotus = session.query(SinglesInventory).filter_by(provider_card_id="mtg-black-lotus").first()
+    mox_pearl = session.query(SinglesInventory).filter_by(provider_card_id="mtg-mox-pearl").first()
     assert black_lotus.market_price == 5000.00
+    assert mox_pearl.market_price == 2500.00
     assert "last_price_drift" not in (black_lotus.api_metadata or {})
+    assert "last_price_drift" not in (mox_pearl.api_metadata or {})
 
     # 6. Assert Pokémon cards remain untouched
     after_pokemon = session.query(SinglesInventory).filter_by(game="pokemon").all()
-    assert len(after_pokemon) == 2
+    assert len(after_pokemon) == 5
     for p_card in after_pokemon:
         orig = before_pokemon[p_card.provider_card_id]
         assert p_card.market_price == orig["market_price"]
@@ -927,16 +1089,10 @@ def test_database_concurrency_background_worker_and_register_checkout(test_app, 
 
     # Assert Pokémon cards remain untouched
     pokemon_cards = session.query(SinglesInventory).filter_by(game="pokemon").all()
-    assert len(pokemon_cards) == 2
+    assert len(pokemon_cards) == 5
     for p_card in pokemon_cards:
-        if p_card.provider_card_id == "swsh3-136":
-            assert p_card.market_price == 20.00, "Pikachu market_price was modified during MTG sync!"
-            assert p_card.sell_price == 20.00
-            assert "last_price_drift" not in (p_card.api_metadata or {})
-        elif p_card.provider_card_id == "base1-4":
-            assert p_card.market_price == 100.00, "Charizard market_price was modified during MTG sync!"
-            assert p_card.sell_price == 100.00
-            assert "last_price_drift" not in (p_card.api_metadata or {})
+        assert p_card.market_price == p_card.sell_price
+        assert "last_price_drift" not in (p_card.api_metadata or {})
 
     session.close()
 
