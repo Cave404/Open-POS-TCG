@@ -582,13 +582,22 @@ def test_auto_adjust_sell_price_with_margin(seed_inventory, test_db):
 
 
 def test_cancellation_flow(seed_inventory, test_db):
-    """Verifies cooperative cancellation halts worker thread cleanly."""
+    """
+    EXPLICIT REQUIREMENT:
+    Graceful Cancellation: The worker loop must inspect a threading.Event or cancellation
+    flag between individual card lookups to abort cleanly when requested.
+    """
     _, session_factory = test_db
     service = MarketRefresherService()
 
-    # Signal cancellation immediately on first lookup
-    def mock_fetch_with_cancel(_):
-        service.cancel_refresh()
+    queried_items = []
+
+    # Signal cancellation on the first card lookup
+    def mock_fetch_with_cancel(card_id):
+        queried_items.append(card_id)
+        # Trigger cooperative cancellation
+        cancelled = service.cancel_refresh()
+        assert cancelled is True, "cancel_refresh() failed to set cancellation signal!"
         return {"market": 20.00}
 
     mock_provider = MagicMock()
@@ -607,7 +616,17 @@ def test_cancellation_flow(seed_inventory, test_db):
             session_factory=session_factory
         )
 
-        assert job.status == "cancelled"
+        # 1. Assert worker loop inspected threading.Event and aborted cleanly
+        assert job.status == "cancelled", f"Expected job status 'cancelled', got '{job.status}'"
+        assert service._cancel_event.is_set(), "threading.Event cancel flag was not set!"
+
+        # 2. Assert that only 1 card was queried before cancellation broke the loop
+        assert len(queried_items) == 1, f"Expected exactly 1 card queried before cancel, got {len(queried_items)}"
+        assert job.processed_items < job.total_items, (
+            f"Processed items ({job.processed_items}) should be less than total ({job.total_items})"
+        )
+        assert job.finished_at is not None, "finished_at timestamp was not recorded on abort!"
+
 
 
 # --- Flask REST Endpoint Tests ---

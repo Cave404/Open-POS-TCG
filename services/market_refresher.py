@@ -226,6 +226,7 @@ class MarketRefresherService:
                 return
 
             for idx, item_spec in enumerate(items_to_process, start=1):
+                # Graceful Cancellation: The worker loop inspects threading.Event between individual card lookups to abort cleanly
                 if self._cancel_event.is_set():
                     job.status = "cancelled"
                     break
@@ -245,6 +246,11 @@ class MarketRefresherService:
                     job.errors.append(f"Provider error for {item_spec['name']} ({item_spec['provider_card_id']}): {str(ex)}")
                     job.processed_items = idx
                     continue
+
+                # Graceful Cancellation: Inspect cancellation flag immediately before opening write session
+                if self._cancel_event.is_set():
+                    job.status = "cancelled"
+                    break
 
                 # Short-lived write session: updates single record and releases lock immediately (< 1ms)
                 if prices and prices.get("market") is not None:
@@ -297,6 +303,11 @@ class MarketRefresherService:
                             job.updated_items += 1
 
                 job.processed_items = idx
+
+                # Graceful Cancellation: Inspect cancellation flag before proceeding to next card lookup
+                if self._cancel_event.is_set():
+                    job.status = "cancelled"
+                    break
 
             if job.status == "running":
                 job.status = "completed"
