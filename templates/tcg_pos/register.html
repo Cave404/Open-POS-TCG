@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG POS - Register Checkout</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <!-- Addon Stylesheets -->
+  <link rel="stylesheet" href="{{ url_for('tcg_pos.static', filename='tcg_pos/css/register.css') }}">
+</head>
+<body>
+
+  <!-- OpenPOS Standard Navigation Bar -->
+  <header class="register-header">
+    <div class="brand-group">
+      <span class="brand-badge">TCG POS</span>
+      <h1 class="brand-title">TCG POS - Register Checkout</h1>
+    </div>
+    <div class="nav-actions">
+      <!-- Live Hardware Status Badge -->
+      <span id="hardwareStatusBadge" class="hardware-badge hardware-offline">
+        Hardware Disconnected
+      </span>
+
+      <!-- Return to Core Dashboard Navigation Action (Zero Dead-End Navigation) -->
+      <a href="/" class="btn-nav-return" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Register Main Workstation Grid -->
+  <main class="register-container">
+    
+    <!-- Left Column: Search & Cart Table -->
+    <section class="panel">
+      <!-- Fast Search / Scanner Wedge Input -->
+      <div class="search-wrapper">
+        <div class="search-input-box">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="registerSearchInput" 
+            class="search-input" 
+            placeholder="Scan NFC Tag / Barcode or Search by Name, SKU, Collector #..." 
+            autocomplete="off" 
+            autofocus
+          />
+        </div>
+        <div id="searchAutocompleteDropdown" class="autocomplete-dropdown"></div>
+      </div>
+
+      <!-- Active Cart Table -->
+      <div class="cart-table-wrapper">
+        <table class="cart-table">
+          <thead>
+            <tr>
+              <th style="width: 45%;">Item / Edition / Finish</th>
+              <th style="width: 15%;">Price</th>
+              <th style="width: 18%;">Quantity</th>
+              <th style="width: 14%;">Total</th>
+              <th style="width: 8%; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="cartTableBody"></tbody>
+        </table>
+
+        <!-- Empty Cart Placeholder State -->
+        <div id="cartEmptyState" style="text-align: center; padding: 4rem 1.5rem; color: var(--text-subtle);">
+          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🏷️</div>
+          <div style="font-size: 1.1rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">
+            Cart is Empty
+          </div>
+          <div style="font-size: 0.85rem;">
+            Tap an NFC tag, scan a barcode, or search by card name above to begin register checkout.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Checkout Summary & Tender -->
+    <aside class="panel checkout-panel">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <h2 style="font-size: 1.1rem; font-weight: 700;">Order Summary</h2>
+          <span id="cartItemsCountBadge" style="font-size: 0.8rem; background: var(--bg-card); padding: 0.25rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-muted);">
+            0 Items
+          </span>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-row">
+            <span>Subtotal</span>
+            <span id="subtotalDisplay" style="font-weight: 600; color: var(--text-main);">$0.00</span>
+          </div>
+          <div class="summary-row">
+            <span>Estimated Tax (8.25%)</span>
+            <span id="taxDisplay" style="font-weight: 600; color: var(--text-main);">$0.00</span>
+          </div>
+          <div class="summary-row total-row">
+            <span>Total Due</span>
+            <span id="totalDisplay">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <button type="button" id="btnCompleteCheckout" class="btn-checkout" disabled>
+          <span>💳</span>
+          <span>Complete Checkout</span>
+        </button>
+        <button type="button" id="btnClearCart" class="btn-nav-return" style="width: 100%; justify-content: center; margin-top: 0.75rem; border: 1px solid rgba(244, 63, 94, 0.2); color: var(--accent-rose);">
+          Clear Cart
+        </button>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Non-blocking Toast Feedback -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Hardware Bridge & Register Client Scripts -->
+  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/hardware_bridge.js') }}"></script>
+  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/register.js') }}"></script>
+</body>
+</html>

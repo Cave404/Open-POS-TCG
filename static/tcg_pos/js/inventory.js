@@ -11,6 +11,7 @@
   let currentPage = 1;
   let totalPages = 1;
   let activeEditItem = null;
+  let activeLabelItem = null;
   let wedgeBuffer = "";
   let wedgeTimer = null;
 
@@ -142,7 +143,7 @@
       // Event handlers
       tr.querySelector(".btn-edit-action").onclick = () => openEditModal(item);
       tr.querySelector(".btn-tag-action").onclick = () => openTagModal(item);
-      tr.querySelector(".btn-print-action").onclick = () => openLabelModal(item);
+      tr.querySelector(".btn-print-action").onclick = () => handlePrintLabel(item);
       tr.querySelector(".btn-delete-action").onclick = () => deleteItem(item);
 
       tableBody.appendChild(tr);
@@ -249,7 +250,77 @@
 
   // --- Label Preview & Thermal Print ---
 
+  async function handlePrintLabel(item) {
+    if (!item) return;
+    activeLabelItem = item;
+
+    // Generic Schema required by OpenPOS Hardware Hub Label Engine
+    const genericPayload = {
+      header: "Magic: The Gathering",
+      title: item.name,
+      subtitle: `${(item.set_code || "").toUpperCase()} · #${item.collector_number || ""} · ${(item.finish || "nonfoil").toUpperCase()} · ${item.condition || "NM"}`,
+      price: `$${Number(item.sell_price || 0).toFixed(2)}`,
+      barcode_value: item.sku || `TCG-${item.id}`,
+      qr_value: `openpos://tcg/${item.id}`
+    };
+
+    try {
+      const resp = await fetch("/hardware/labels/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          format: "html",
+          width_mm: 25,
+          height_mm: 25,
+          payload: genericPayload
+        })
+      });
+
+      if (resp.ok) {
+        const result = await resp.json();
+        if (result.status === "success" && result.content) {
+          if (window.hardwareBridge) window.hardwareBridge.chimeSuccess();
+
+          // Render via dedicated invisible iframe for instant thermal print
+          let printFrame = document.getElementById("label-print-frame");
+          if (!printFrame) {
+            printFrame = document.createElement("iframe");
+            printFrame.id = "label-print-frame";
+            printFrame.style.position = "fixed";
+            printFrame.style.right = "0";
+            printFrame.style.bottom = "0";
+            printFrame.style.width = "0";
+            printFrame.style.height = "0";
+            printFrame.style.border = "0";
+            document.body.appendChild(printFrame);
+          }
+          const doc = printFrame.contentWindow.document;
+          doc.open();
+          doc.write(result.content);
+          doc.close();
+
+          setTimeout(() => {
+            try {
+              printFrame.contentWindow.focus();
+              printFrame.contentWindow.print();
+            } catch (e) {
+              window.print();
+            }
+          }, 250);
+          return;
+        }
+      }
+      // If hardware render returned error, fallback to preview modal
+      console.warn("[Inventory] Hardware label render returned non-success, opening preview modal.");
+      openLabelModal(item);
+    } catch (err) {
+      console.warn("[Inventory] Hardware hub offline, falling back to local print preview modal:", err);
+      openLabelModal(item);
+    }
+  }
+
   async function openLabelModal(item) {
+    activeLabelItem = item;
     try {
       const resp = await fetch(`/tcg/api/items/${item.id}/label-payload`);
       const payload = await resp.json();
@@ -348,7 +419,7 @@
     btnCloseTagModal.addEventListener("click", () => tagModal.style.display = "none");
 
     // Label modal
-    btnTriggerPrint.addEventListener("click", () => window.print());
+    btnTriggerPrint.addEventListener("click", () => handlePrintLabel(activeLabelItem || activeEditItem));
     btnCloseLabelModal.addEventListener("click", () => labelModal.style.display = "none");
 
     // Global HID wedge keystroke capture (when tag modal is open)
@@ -375,5 +446,37 @@
         if (e.target === m) m.style.display = "none";
       });
     });
+
+    // Universal Hardware Scan Listener (Tap-to-Filter & Modal Assignment)
+    window.addEventListener("openpos:hardware-scan", (event) => {
+      const detail = event.detail || {};
+      const token = (detail.value || "").trim();
+      if (!token) return;
+
+      console.log("[Inventory] Hardware scan intercepted:", detail);
+
+      // If Tag Assignment Modal is currently visible, populate input and commit
+      if (tagModal && tagModal.style.display === "flex") {
+        tagInputVal.value = token;
+        if (window.hardwareBridge) window.hardwareBridge.chimeSuccess();
+        tagStatusMessage.textContent = "Token captured! Saving...";
+        tagStatusMessage.style.color = "var(--accent-green)";
+        saveTag();
+        return;
+      }
+
+      // Tap-to-Filter: Set search box value to scanned identifier and filter grid
+      if (searchInput) {
+        searchInput.value = token;
+        if (window.hardwareBridge) window.hardwareBridge.chimeSuccess();
+        loadInventory(1);
+      }
+    });
+
+    // Attach status badge if bridge is active
+    const hardwareBadge = document.getElementById("hardwareStatusBadge");
+    if (window.hardwareBridge && hardwareBadge) {
+      window.hardwareBridge.attachStatusBadge(hardwareBadge);
+    }
   });
 })();

@@ -12,7 +12,7 @@ decrements during checkout.
 from datetime import datetime, timezone
 import re
 from typing import Any, Dict, List, Optional
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, render_template, request
 from sqlalchemy.orm import Session
 
 from models import SinglesInventory, get_db_session
@@ -34,6 +34,12 @@ def _resolve_session() -> Session:
     if current_app.config.get("DB_ENGINE"):
         return get_db_session(engine=current_app.config["DB_ENGINE"])
     return get_db_session()
+
+
+@addon_bp.route("/register", methods=["GET"])
+def register_view():
+    """Renders the TCG POS Register Checkout screen."""
+    return render_template("tcg_pos/register.html")
 
 
 @addon_bp.route("/api/resolve", methods=["GET"])

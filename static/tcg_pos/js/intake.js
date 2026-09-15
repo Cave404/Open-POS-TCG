@@ -58,6 +58,77 @@
   const btnCommitCash = document.getElementById("btn-commit-cash");
   const btnCommitCredit = document.getElementById("btn-commit-credit");
 
+  // Hardware Bridge & Tag Pairing Elements
+  const inputTagId = document.getElementById("input-tag-id");
+  const btnPairTag = document.getElementById("btn-pair-tag");
+  const hardwareBadge = document.getElementById("hardwareStatusBadge");
+  let isPairingTag = false;
+
+  function setPairingState(active) {
+    isPairingTag = active;
+    if (!btnPairTag) return;
+    if (isPairingTag) {
+      btnPairTag.innerHTML = `<span>⏳ Tap Tag / Scan Barcode...</span>`;
+      btnPairTag.style.background = "rgba(16, 185, 129, 0.2)";
+      btnPairTag.style.borderColor = "rgba(16, 185, 129, 0.6)";
+      btnPairTag.style.color = "#10B981";
+      if (inputTagId) {
+        inputTagId.placeholder = "Listening for hardware scan event...";
+        inputTagId.focus();
+      }
+    } else {
+      btnPairTag.innerHTML = `<span>📡 Pair Hardware Tag</span>`;
+      btnPairTag.style.background = "rgba(56, 189, 248, 0.12)";
+      btnPairTag.style.borderColor = "rgba(56, 189, 248, 0.35)";
+      btnPairTag.style.color = "var(--accent-sky)";
+      if (inputTagId) {
+        inputTagId.placeholder = "Click 'Pair Hardware Tag' or scan/type 14-char UID or barcode...";
+      }
+    }
+  }
+
+  // Listen for universal hardware scan events
+  window.addEventListener("openpos:hardware-scan", (event) => {
+    const detail = event.detail || {};
+    const token = (detail.value || "").trim();
+    if (!token) return;
+
+    console.log("[Intake] Hardware scan intercepted:", detail);
+
+    if (inputTagId) {
+      inputTagId.value = token;
+      if (window.hardwareBridge) {
+        window.hardwareBridge.chimeSuccess();
+      }
+
+      // Visual feedback: green highlight flash
+      inputTagId.style.borderColor = "#10B981";
+      inputTagId.style.boxShadow = "0 0 12px rgba(16, 185, 129, 0.6)";
+      inputTagId.style.backgroundColor = "rgba(16, 185, 129, 0.15)";
+      setTimeout(() => {
+        inputTagId.style.borderColor = "";
+        inputTagId.style.boxShadow = "";
+        inputTagId.style.backgroundColor = "";
+      }, 2000);
+
+      showToast(`Hardware tag paired: ${token}`, "success");
+      setPairingState(false);
+      if (btnPairTag) {
+        btnPairTag.innerHTML = `<span>✓ Tag Paired (${token.slice(0, 8)}...)</span>`;
+        setTimeout(() => {
+          if (btnPairTag && !isPairingTag) {
+            btnPairTag.innerHTML = `<span>📡 Pair Hardware Tag</span>`;
+          }
+        }, 3500);
+      }
+    }
+  });
+
+  // Attach status badge if bridge is active
+  if (window.hardwareBridge && hardwareBadge) {
+    window.hardwareBridge.attachStatusBadge(hardwareBadge);
+  }
+
   // Condition multipliers map
   const COND_MULTS = {
     NM: 1.00,
@@ -193,6 +264,15 @@
     setCondition("NM");
     setQuantity(1);
 
+    // Reset hardware pairing input
+    if (inputTagId) {
+      inputTagId.value = "";
+      inputTagId.style.borderColor = "";
+      inputTagId.style.boxShadow = "";
+      inputTagId.style.backgroundColor = "";
+    }
+    setPairingState(false);
+
     // Trigger instant buylist calculation
     updateBuylistCalculation();
   }
@@ -288,6 +368,7 @@
     const costBasis = Math.max(0, parseFloat(inputCostBasis.value) || 0.0);
     const sellPrice = Math.max(0, parseFloat(inputSellPrice.value) || 0.0);
     const basePrice = resolveApplicablePrice();
+    const tagId = inputTagId ? inputTagId.value.trim() : "";
 
     const existingIndex = stagedQueue.findIndex(
       (item) =>
@@ -328,9 +409,12 @@
         etched_price: activeCard.etched_price,
         image_path: activeCard.cached_image_path,
         image_uri: activeCard.image_uri,
+        custom_tag_id: tagId || null,
         api_metadata: activeCard.api_metadata || {}
       };
       stagedQueue.push(stagedItem);
+      if (inputTagId) inputTagId.value = "";
+      setPairingState(false);
       showToast(`Added ${qty}x ${activeCard.name} to staged queue.`, "success");
     }
 
@@ -388,6 +472,7 @@
       tr.innerHTML = `
         <td>
           <strong>${item.name}</strong>
+          ${item.custom_tag_id ? `<span style="font-family: monospace; font-size: 0.7rem; color: var(--accent-sky); background: rgba(56, 189, 248, 0.15); padding: 0.1rem 0.35rem; border-radius: 4px; margin-left: 0.35rem; border: 1px solid rgba(56, 189, 248, 0.3);">🏷️ ${item.custom_tag_id}</span>` : ""}
           <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">
             ${item.set_code} #${item.collector_number}
           </div>
@@ -543,6 +628,9 @@
     inputQuantity.addEventListener("change", (e) => setQuantity(e.target.value));
 
     // Staging and Queue buttons
+    if (btnPairTag) {
+      btnPairTag.addEventListener("click", () => setPairingState(!isPairingTag));
+    }
     btnStageCard.addEventListener("click", stageCurrentCard);
     btnClearQueue.addEventListener("click", clearQueue);
     btnCommitCash.addEventListener("click", () => commitBatch("cash"));

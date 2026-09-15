@@ -22,6 +22,9 @@
       <h1 class="tcg-nav-title">TCG POS - Inventory Management</h1>
     </div>
     <div class="tcg-nav-actions">
+      <!-- Live Hardware Status Badge -->
+      <span id="hardwareStatusBadge" class="hardware-badge hardware-offline" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; background: rgba(244, 63, 94, 0.15); color: #F43F5E; border: 1px solid rgba(244, 63, 94, 0.3);">Hardware Disconnected</span>
+
       <!-- Shortcut to Intake Workstation -->
       <a href="/tcg/intake" class="btn-nav-action" title="Open Intake & Buylist Workstation">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -251,6 +254,7 @@
   </div>
 
   <!-- Client Script Engine -->
+  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/hardware_bridge.js') }}"></script>
   <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/inventory.js') }}"></script>
 </body>
 </html>

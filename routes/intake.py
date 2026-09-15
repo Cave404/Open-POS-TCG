@@ -289,6 +289,7 @@ def api_intake_commit():
             image_path = raw_item.get("image_path")
             image_uri = raw_item.get("image_uri")
             api_metadata = raw_item.get("api_metadata") if isinstance(raw_item.get("api_metadata"), dict) else {}
+            custom_tag_id = str(raw_item.get("custom_tag_id", "")).strip() or None
 
             # Query existing row by composite unique key: (game, provider_card_id, finish, condition)
             existing = session.query(SinglesInventory).filter_by(
@@ -338,6 +339,8 @@ def api_intake_commit():
                     existing.image_uri = image_uri
                 if api_metadata:
                     existing.api_metadata = api_metadata
+                if custom_tag_id:
+                    existing.custom_tag_id = custom_tag_id
 
                 existing.updated_at = datetime.now(timezone.utc)
                 updated_records.append(existing.to_dict())
@@ -364,6 +367,7 @@ def api_intake_commit():
                     image_path=image_path,
                     image_uri=image_uri,
                     api_metadata=api_metadata,
+                    custom_tag_id=custom_tag_id,
                     created_at=datetime.now(timezone.utc),
                     updated_at=datetime.now(timezone.utc)
                 )
