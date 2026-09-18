@@ -8,28 +8,64 @@
   <!-- Modern Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   
   <!-- Addon Stylesheets -->
   <link rel="stylesheet" href="{{ url_for('tcg_pos.static', filename='tcg_pos/css/register.css') }}">
 </head>
 <body>
 
-  <!-- OpenPOS Standard Navigation Bar -->
+<div class="tcg-register-container">
+
+  <!-- =========================================================================
+       OpenPOS Standard Navigation Bar (Zero Dead-End Navigation)
+       ========================================================================= -->
   <header class="register-header">
     <div class="brand-group">
-      <span class="brand-badge">TCG POS</span>
-      <h1 class="brand-title">TCG POS - Register Checkout</h1>
+      <div class="brand-logo-badge brand-badge">
+        <span class="brand-badge-text">TCG POS</span>
+      </div>
+      <div>
+        <h1 class="brand-title">TCG POS - Register Checkout</h1>
+        <div class="brand-sub">OpenPOS Singles &amp; Checkout Engine</div>
+      </div>
     </div>
-    <div class="nav-actions">
-      <!-- Live Hardware Status Badge -->
+
+    <!-- Center System Status -->
+    <div class="header-center-info">
+      <div class="engine-pill">
+        <span class="engine-dot"></span>
+        <span class="engine-text">Engine Online (v1.0.8)</span>
+      </div>
       <span id="hardwareStatusBadge" class="hardware-badge hardware-offline">
         Hardware Disconnected
       </span>
+    </div>
+
+    <!-- Right Header Actions -->
+    <div class="nav-actions">
+      <!-- Quick link to Card Intake -->
+      <a href="/tcg/intake" class="btn-nav-action" title="Open Card Intake & Buylist Workstation">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Card Intake</span>
+      </a>
+
+      <!-- Quick link to Pricing Engine -->
+      <a href="/tcg/pricing" class="btn-nav-action" title="Open Market Pricing Engine">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        <span>Pricing</span>
+      </a>
 
       <!-- Return to Core Dashboard Navigation Action (Zero Dead-End Navigation) -->
       <a href="/" class="btn-nav-return" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 12H5M12 19l-7-7 7-7"/>
         </svg>
         <span>Return to Dashboard</span>
@@ -37,165 +73,368 @@
     </div>
   </header>
 
-  <!-- Register Main Workstation Grid -->
-  <main class="register-container">
+  <!-- =========================================================================
+       Main Workstation Layout: 65% / 35% Split-Pane
+       ========================================================================= -->
+  <main class="register-main-grid">
     
-    <!-- Left Column: Search & Cart Table -->
-    <section class="panel">
-      <!-- Fast Search / Scanner Wedge Input -->
-      <div class="search-wrapper">
-        <div class="search-input-box">
-          <span class="search-icon">ðŸ”</span>
+    <!-- =====================================================================
+         LEFT PANE (65%): Persistent Scan Bar, Quick Hotkeys & Active Cart
+         ===================================================================== -->
+    <section class="panel main-cart-pane">
+      
+      <!-- Top Persistent Scan Input Bar -->
+      <div class="search-section">
+        <div class="search-input-box pulse-active" id="searchBoxContainer">
+          <div class="search-input-prefix">
+            <span class="search-icon">🔍</span>
+            <span class="scanner-live-badge" id="scannerLiveBadge" title="Scanner auto-focused">SCANNER LIVE</span>
+          </div>
           <input 
             type="text" 
             id="registerSearchInput" 
             class="search-input" 
-            placeholder="Scan NFC Tag / Barcode or Search by Name, SKU, Collector #..." 
+            placeholder="Scan barcode, NFC token, or type card name / SKU... [F2]" 
             autocomplete="off" 
             autofocus
+            aria-label="Register Scanner Bar"
           />
+          <button type="button" id="btnClearSearch" class="btn-clear-search" style="display: none;" title="Clear search">&times;</button>
+          <div class="search-hotkey-pill" title="Press F2 to focus">F2</div>
         </div>
-        <div id="searchAutocompleteDropdown" class="autocomplete-dropdown"></div>
+
+        <!-- Live Autocomplete Dropdown List -->
+        <div id="searchAutocompleteDropdown" class="autocomplete-dropdown" role="listbox"></div>
       </div>
 
-      <!-- Active Cart Table -->
+      <!-- Hotkey Quick-Reference Action Bar -->
+      <div class="hotkey-toolbar">
+        <div class="hotkey-item" id="hotkeyF2">
+          <kbd>F2</kbd> <span>Focus Scanner</span>
+        </div>
+        <div class="hotkey-item" id="hotkeyF4">
+          <kbd>F4</kbd> <span>Customer Lookup</span>
+        </div>
+        <div class="hotkey-item" id="hotkeyF8">
+          <kbd>F8</kbd> <span>Tender / Checkout</span>
+        </div>
+        <div class="hotkey-item" id="hotkeyEsc">
+          <kbd>Esc</kbd> <span>Clear / Close</span>
+        </div>
+      </div>
+
+      <!-- Active Cart Table Wrapper -->
       <div class="cart-table-wrapper">
         <table class="cart-table">
           <thead>
             <tr>
-              <th style="width: 45%;">Item / Edition / Finish</th>
-              <th style="width: 15%;">Price</th>
-              <th style="width: 18%;">Quantity</th>
-              <th style="width: 14%;">Total</th>
-              <th style="width: 8%; text-align: right;">Action</th>
+              <th style="width: 44%;">Item / Edition / Variant</th>
+              <th style="width: 14%; text-align: right;">Unit Price</th>
+              <th style="width: 18%; text-align: center;">Quantity</th>
+              <th style="width: 14%; text-align: right;">Line Total</th>
+              <th style="width: 10%; text-align: center;">Action</th>
             </tr>
           </thead>
           <tbody id="cartTableBody"></tbody>
         </table>
 
-        <!-- Empty Cart Placeholder State -->
-        <div id="cartEmptyState" style="text-align: center; padding: 4rem 1.5rem; color: var(--text-subtle);">
-          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">ðŸ·ï¸</div>
-          <div style="font-size: 1.1rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">
-            Cart is Empty
-          </div>
-          <div style="font-size: 0.85rem;">
-            Tap an NFC tag, scan a barcode, or search by card name above to begin register checkout.
+        <!-- Empty Cart State -->
+        <div id="cartEmptyState" class="empty-cart-state">
+          <div class="empty-cart-icon">🃏</div>
+          <h3 class="empty-cart-title">Cart is Empty</h3>
+          <p class="empty-cart-sub">
+            Scan a singles barcode, tap an NFC tag, or type a card name in the search bar above to begin sales checkout.
+          </p>
+          <div class="empty-cart-tips">
+            <span class="tip-pill"><kbd>F2</kbd> Focus Search</span>
+            <span class="tip-pill"><kbd>F4</kbd> Attach Customer</span>
           </div>
         </div>
       </div>
+
+      <!-- Cart Action Footer Bar -->
+      <div class="cart-footer-bar">
+        <button type="button" id="btnClearCart" class="btn-clear-cart" title="Clear all items in cart">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Clear Cart</span>
+        </button>
+
+        <div class="cart-stats-group">
+          <span class="cart-stat-text">Unique Lines: <strong id="cartUniqueLinesCount">0</strong></span>
+          <span class="cart-stat-divider">&bull;</span>
+          <span class="cart-stat-text">Total Quantity: <strong id="cartTotalQuantityCount">0</strong></span>
+        </div>
+      </div>
+
     </section>
 
-    <!-- Right Column: Checkout Summary & Tender -->
-    <aside class="panel checkout-panel">
-      <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-          <h2 style="font-size: 1.1rem; font-weight: 700;">Order Summary</h2>
-          <span id="cartItemsCountBadge" style="font-size: 0.8rem; background: var(--bg-card); padding: 0.25rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-muted);">
-            0 Items
-          </span>
+    <!-- =====================================================================
+         RIGHT SIDEBAR (35%): Active Card Inspector, Customer & Tender Panel
+         ===================================================================== -->
+    <aside class="panel sidebar-panel">
+      
+      <!-- 1. Active Card Inspector Section -->
+      <div class="inspector-card" id="activeCardInspector">
+        <div class="inspector-header">
+          <h2 class="inspector-title">Active Card Inspector</h2>
+          <span class="inspector-badge" id="inspectorGameBadge">TCG</span>
         </div>
 
-        <div class="summary-card">
+        <!-- Inspector Empty State -->
+        <div id="inspectorEmptyState" class="inspector-empty">
+          <div style="font-size: 2rem; margin-bottom: 0.35rem;">🔍</div>
+          <div style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">No Item Selected</div>
+          <div style="font-size: 0.78rem; color: var(--text-subtle); margin-top: 0.2rem;">
+            Hover or tap any item in the cart to view card artwork, metadata, and live market benchmarks.
+          </div>
+        </div>
+
+        <!-- Populated Inspector Content -->
+        <div id="inspectorActiveContent" class="inspector-content" style="display: none;">
+          <div class="inspector-grid">
+            <!-- Card Visual Artwork Frame -->
+            <div class="inspector-art-frame">
+              <img 
+                id="inspectorArtImg" 
+                class="inspector-art-img" 
+                src="" 
+                alt="Card Artwork" 
+                onerror="this.src='/tcg/addons/tcg_pos/static/placeholder_card.png'"
+              />
+            </div>
+
+            <!-- Card Metadata Column -->
+            <div class="inspector-meta-info">
+              <h3 id="inspectorCardTitle" class="inspector-card-title">Card Name</h3>
+              <div id="inspectorTypeLine" class="inspector-type-line">Artifact Creature</div>
+              
+              <div class="inspector-badges-row">
+                <span id="inspectorSetBadge" class="badge-set">SET</span>
+                <span id="inspectorCollectorBadge" class="badge-collector">#000</span>
+                <span id="inspectorRarityBadge" class="badge-rarity">Rare</span>
+                <span id="inspectorFinishBadge" class="badge-finish">Nonfoil</span>
+                <span id="inspectorConditionBadge" class="badge-condition">NM</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Market Price Benchmarks Grid -->
+          <div class="inspector-benchmarks-grid">
+            <div class="benchmark-pill">
+              <span class="benchmark-label">Market Avg</span>
+              <span id="inspectorBenchMarket" class="benchmark-val">$0.00</span>
+            </div>
+            <div class="benchmark-pill">
+              <span class="benchmark-label">Market Low</span>
+              <span id="inspectorBenchLow" class="benchmark-val">$0.00</span>
+            </div>
+            <div class="benchmark-pill">
+              <span class="benchmark-label">Foil / Holo</span>
+              <span id="inspectorBenchFoil" class="benchmark-val">$0.00</span>
+            </div>
+            <div class="benchmark-pill">
+              <span class="benchmark-label">Etched / Spec</span>
+              <span id="inspectorBenchEtched" class="benchmark-val">$0.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Customer & Store Credit Widget Section -->
+      <div class="customer-widget" id="customerWidget">
+        <div class="customer-widget-header">
+          <div class="customer-header-title">
+            <span class="customer-icon">👤</span>
+            <span style="font-weight: 700; font-size: 0.9rem;">Customer Account</span>
+          </div>
+          <button type="button" id="btnToggleCustomerLookup" class="btn-customer-lookup" title="Lookup customer (F4)">
+            <kbd>F4</kbd> <span>Lookup</span>
+          </button>
+        </div>
+
+        <!-- Detached State -->
+        <div id="customerDetachedView" class="customer-detached-view">
+          <div class="detached-text">No customer attached to transaction.</div>
+          <button type="button" id="btnAttachCustomerAction" class="btn-attach-customer">
+            <span>+ Attach Customer for Store Credit / Loyalty</span>
+          </button>
+        </div>
+
+        <!-- Attached State -->
+        <div id="customerAttachedView" class="customer-attached-view" style="display: none;">
+          <div class="customer-profile-card">
+            <div class="customer-avatar" id="customerAvatarInitial">C</div>
+            <div class="customer-info-box">
+              <div class="customer-name-row">
+                <span id="customerNameDisplay" class="customer-name">Customer Name</span>
+                <span id="customerLoyaltyPill" class="loyalty-pill">VIP</span>
+              </div>
+              <div id="customerContactDisplay" class="customer-contact">customer@example.com</div>
+              <div class="credit-balance-row">
+                <span class="credit-label">Store Credit:</span>
+                <span id="customerCreditDisplay" class="credit-balance-val">$0.00</span>
+                <button type="button" id="btnQuickApplyCredit" class="btn-quick-credit" title="Apply available store credit">Apply to Sale</button>
+              </div>
+            </div>
+            <button type="button" id="btnDetachCustomer" class="btn-detach-customer" title="Detach customer from transaction">&times;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Transaction Summary & Tender Action -->
+      <div class="summary-checkout-card">
+        <div class="summary-header">
+          <h2 style="font-size: 1.05rem; font-weight: 700;">Order Summary</h2>
+          <span id="cartItemsCountBadge" class="items-count-badge">0 Items</span>
+        </div>
+
+        <div class="summary-rows-list">
           <div class="summary-row">
             <span>Subtotal</span>
-            <span id="subtotalDisplay" style="font-weight: 600; color: var(--text-main);">$0.00</span>
+            <span id="subtotalDisplay" class="summary-val">$0.00</span>
           </div>
           <div class="summary-row">
-            <span>Estimated Tax (8.25%)</span>
-            <span id="taxDisplay" style="font-weight: 600; color: var(--text-main);">$0.00</span>
+            <span>Estimated Tax (<span id="taxRatePercentLabel">8.25%</span>)</span>
+            <span id="taxDisplay" class="summary-val">$0.00</span>
+          </div>
+          <div class="summary-row" id="storeCreditAppliedRow" style="display: none;">
+            <span style="color: var(--accent-emerald);">Store Credit Applied</span>
+            <span id="storeCreditAppliedDisplay" class="summary-val" style="color: var(--accent-emerald);">-$0.00</span>
           </div>
           <div class="summary-row total-row">
             <span>Total Due</span>
-            <span id="totalDisplay">$0.00</span>
+            <span id="totalDisplay" class="total-due-val">$0.00</span>
           </div>
         </div>
+
+        <!-- Primary Action Button (Large Touch Target) -->
+        <button type="button" id="btnCompleteCheckout" class="btn-primary-checkout" disabled>
+          <span class="btn-checkout-icon">💳</span>
+          <span class="btn-checkout-label">Tender / Checkout</span>
+          <kbd class="btn-checkout-kbd">F8</kbd>
+        </button>
       </div>
 
-      <div>
-        <button type="button" id="btnCompleteCheckout" class="btn-checkout" disabled>
-          <span>ðŸ’³</span>
-          <span>Complete Checkout</span>
-        </button>
-        <button type="button" id="btnClearCart" class="btn-nav-return" style="width: 100%; justify-content: center; margin-top: 0.75rem; border: 1px solid rgba(244, 63, 94, 0.2); color: var(--accent-rose);">
-          Clear Cart
-        </button>
-      </div>
     </aside>
 
   </main>
 
-
-  <!-- ================================================================
-       Tender Modal — Split Payment (Cash / Card / Store Credit)
-       ================================================================ -->
-  <div id="tenderModal" class="tender-modal-overlay" role="dialog" aria-modal="true"
-       aria-labelledby="tenderModalTitle" style="display:none;">
-    <div class="tender-modal-box">
-
-      <div class="tender-modal-header">
+  <!-- =========================================================================
+       Customer Lookup Modal (F4 or Button Click)
+       ========================================================================= -->
+  <div id="customerLookupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="customerLookupTitle" style="display: none;">
+    <div class="modal-box customer-modal-box">
+      <div class="modal-header">
         <div>
-          <h2 id="tenderModalTitle" class="tender-modal-title">Complete Payment</h2>
-          <p class="tender-modal-sub">Split payment across Cash, Card, and Store Credit.</p>
+          <h2 id="customerLookupTitle" class="modal-title">Attach Customer</h2>
+          <p class="modal-sub">Scan NFC loyalty card, tap phone, or search by name / phone / email.</p>
         </div>
-        <button type="button" class="tender-modal-close" id="btnCloseTenderModal" aria-label="Close">&times;</button>
+        <button type="button" class="modal-close" id="btnCloseCustomerModal" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="customer-search-wrap">
+        <div class="search-input-box" style="margin-bottom: 0.5rem;">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="customerSearchQueryInput" 
+            class="search-input" 
+            placeholder="Type customer name, email, phone, or scan 14-char NFC UID..." 
+            autocomplete="off"
+          />
+          <button type="button" id="btnSubmitCustomerSearch" class="btn-nav-action" style="padding: 0.4rem 0.8rem; background: var(--accent-sky); color: #000; font-weight: 700;">
+            Search
+          </button>
+        </div>
+      </div>
+
+      <!-- Customer Search Results Container -->
+      <div id="customerSearchResults" class="customer-search-results">
+        <div class="customer-search-prompt" style="text-align: center; padding: 2rem 1rem; color: var(--text-subtle);">
+          Scan a customer's NFC membership card or enter contact details to query OpenPOS Core customer ledger.
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem;">
+        <span style="font-size: 0.78rem; color: var(--text-muted);">Core Ledger Bridge: <strong style="color: var(--accent-emerald);">Active</strong></span>
+        <button type="button" id="btnCancelCustomerModal" class="tender-btn-cancel" style="padding: 0.45rem 1rem;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       Tender Modal — Split Payment (Cash / Card / Store Credit)
+       ========================================================================= -->
+  <div id="tenderModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="tenderModalTitle" style="display: none;">
+    <div class="modal-box tender-modal-box">
+
+      <div class="modal-header">
+        <div>
+          <h2 id="tenderModalTitle" class="modal-title">Complete Payment</h2>
+          <p class="modal-sub">Split payment across Cash, Card, and Store Credit.</p>
+        </div>
+        <button type="button" class="modal-close" id="btnCloseTenderModal" aria-label="Close">&times;</button>
       </div>
 
       <!-- Amount Due Summary -->
       <div class="tender-due-bar">
         <span>Amount Due</span>
-        <span id="tenderAmountDue" class="tender-due-amount">  <!-- Non-blocking Toast Feedback -->.00</span>
+        <span id="tenderAmountDue" class="tender-due-amount">$0.00</span>
       </div>
 
-      <!-- Tender Inputs -->
+      <!-- Tender Inputs Grid -->
       <div class="tender-inputs-grid">
+        <!-- Cash Tender -->
         <div class="tender-input-group">
           <label class="tender-label" for="tenderCash">
             <span class="tender-icon">💵</span> Cash
           </label>
           <div class="tender-input-wrap">
             <span class="tender-currency">$</span>
-            <input type="number" id="tenderCash" class="tender-input" min="0" step="0.01"
-                   placeholder="0.00" autocomplete="off">
+            <input type="number" id="tenderCash" class="tender-input" min="0" step="0.01" placeholder="0.00" autocomplete="off">
           </div>
           <!-- Quick-select bill buttons -->
-          <div class="tender-quick-bills" style="display:flex; gap:0.35rem; margin-top:0.4rem; flex-wrap:wrap;">
-            <button type="button" class="btn-quick-bill" data-amount="5" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$5</button>
-            <button type="button" class="btn-quick-bill" data-amount="10" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$10</button>
-            <button type="button" class="btn-quick-bill" data-amount="20" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$20</button>
-            <button type="button" class="btn-quick-bill" data-amount="50" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$50</button>
-            <button type="button" class="btn-quick-bill" data-amount="100" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+$100</button>
+          <div class="tender-quick-bills">
+            <button type="button" class="btn-quick-bill" data-amount="5">+$5</button>
+            <button type="button" class="btn-quick-bill" data-amount="10">+$10</button>
+            <button type="button" class="btn-quick-bill" data-amount="20">+$20</button>
+            <button type="button" class="btn-quick-bill" data-amount="50">+$50</button>
+            <button type="button" class="btn-quick-bill" data-amount="100">+$100</button>
           </div>
         </div>
 
+        <!-- Card Tender -->
         <div class="tender-input-group">
           <label class="tender-label" for="tenderCard">
             <span class="tender-icon">💳</span> Card
           </label>
           <div class="tender-input-wrap">
             <span class="tender-currency">$</span>
-            <input type="number" id="tenderCard" class="tender-input" min="0" step="0.01"
-                   placeholder="0.00" autocomplete="off">
+            <input type="number" id="tenderCard" class="tender-input" min="0" step="0.01" placeholder="0.00" autocomplete="off">
           </div>
-          <input type="text" id="tenderCardRef" class="tender-input tender-ref-input"
-                 placeholder="Card last-4 or auth (optional)" autocomplete="off">
+          <input type="text" id="tenderCardRef" class="tender-input tender-ref-input" placeholder="Card last-4 or auth (optional)" autocomplete="off">
         </div>
 
+        <!-- Store Credit Tender -->
         <div class="tender-input-group">
-          <label class="tender-label" for="tenderStoreCredit">
-            <span class="tender-icon">🏷️</span> Store Credit
-          </label>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="tender-label" for="tenderStoreCredit">
+              <span class="tender-icon">🏷️</span> Store Credit
+            </label>
+            <span id="modalCreditAvailableLabel" style="font-size: 0.72rem; color: var(--accent-emerald);">Available: $0.00</span>
+          </div>
           <div class="tender-input-wrap">
             <span class="tender-currency">$</span>
-            <input type="number" id="tenderStoreCredit" class="tender-input" min="0" step="0.01"
-                   placeholder="0.00" autocomplete="off">
+            <input type="number" id="tenderStoreCredit" class="tender-input" min="0" step="0.01" placeholder="0.00" autocomplete="off">
           </div>
-          <input type="text" id="tenderCreditRef" class="tender-input tender-ref-input"
-                 placeholder="Account / Trade ref (optional)" autocomplete="off">
+          <input type="text" id="tenderCreditRef" class="tender-input tender-ref-input" placeholder="Account / Trade reference (optional)" autocomplete="off">
         </div>
       </div>
 
-      <!-- Running Balance -->
+      <!-- Running Balance Row -->
       <div class="tender-balance-row">
         <div class="tender-balance-item">
           <span class="tender-balance-label">Total Tendered</span>
@@ -211,24 +450,24 @@
         </div>
       </div>
 
-      <!-- Quick-fill buttons -->
+      <!-- Quick-fill Exact Amounts -->
       <div class="tender-quick-fills" id="tenderQuickFills"></div>
 
       <!-- Peripheral Options -->
-      <div class="tender-options-row" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; color: #cbd5e1;">
-        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+      <div class="tender-options-row">
+        <label class="checkbox-label">
           <input type="checkbox" id="optPrintReceipt" checked>
-          <span>Print Thermal Receipt</span>
+          <span>Print Thermal Receipt (80mm / 58mm)</span>
         </label>
-        <label id="optKickDrawerWrap" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+        <label class="checkbox-label" id="optKickDrawerWrap">
           <input type="checkbox" id="optKickDrawer">
-          <span>Kick Cash Drawer</span>
+          <span>Kick Cash Drawer (ESC/POS)</span>
         </label>
       </div>
 
-      <!-- Action Buttons -->
+      <!-- Modal Action Buttons -->
       <div class="tender-modal-actions">
-        <button type="button" id="btnCancelTender" class="tender-btn-cancel">Cancel</button>
+        <button type="button" id="btnCancelTender" class="tender-btn-cancel">Cancel [Esc]</button>
         <button type="button" id="btnConfirmTender" class="tender-btn-confirm" disabled>
           <span>✓</span> Confirm &amp; Settle
         </button>
@@ -236,12 +475,14 @@
 
     </div>
   </div>
+
   <!-- Non-blocking Toast Feedback -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Hardware Bridge & Register Client Scripts -->
-  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/hardware_bridge.js') }}"></script>
-  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/register.js') }}"></script>
+</div>
+
+<!-- Hardware Bridge & Register Client Scripts -->
+<script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/hardware_bridge.js') }}"></script>
+<script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/register.js') }}"></script>
 </body>
 </html>
-

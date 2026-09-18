@@ -8,37 +8,64 @@
   <!-- Modern Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   
   <!-- Addon Stylesheet -->
   <link rel="stylesheet" href="{{ url_for('tcg_pos.static', filename='tcg_pos/css/intake.css') }}">
 </head>
 <body>
 
-  <!-- OpenPOS Standard Navigation Bar -->
-  <header class="tcg-navbar">
-    <div class="tcg-nav-brand">
-      <span class="tcg-brand-badge">TCG POS</span>
-      <h1 class="tcg-nav-title">TCG POS - Universal Intake & Buylist</h1>
-    </div>
-    <div class="tcg-nav-actions">
-      <div class="tcg-status-indicator">
-        <span class="status-dot"></span>
-        <span>Engine Active (v1.0.0)</span>
+<div class="tcg-intake-container">
+
+  <!-- =========================================================================
+       OpenPOS Standard Navigation Bar (Zero Dead-End Navigation)
+       ========================================================================= -->
+  <header class="intake-header">
+    <div class="brand-group">
+      <div class="brand-logo-badge brand-badge">
+        <span class="brand-badge-text">TCG POS</span>
       </div>
-      <span id="hardwareStatusBadge" class="hardware-badge hardware-offline" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; background: rgba(244, 63, 94, 0.15); color: #F43F5E; border: 1px solid rgba(244, 63, 94, 0.3);">Hardware Disconnected</span>
-      <!-- Shortcut to Pricing Engine -->
-      <a href="/tcg/pricing" class="btn-nav-return" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;" title="Open Market Pricing Engine">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"></polyline>
-          <polyline points="1 20 1 14 7 14"></polyline>
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      <div>
+        <h1 class="brand-title">TCG POS - Universal Intake &amp; Buylist</h1>
+        <div class="brand-sub">Universal Card Grading &amp; Trade-In Pricing Engine</div>
+      </div>
+    </div>
+
+    <!-- Center System Status -->
+    <div class="header-center-info">
+      <div class="engine-pill">
+        <span class="engine-dot"></span>
+        <span class="engine-text">Engine Online (v1.0.8)</span>
+      </div>
+      <span id="hardwareStatusBadge" class="hardware-badge hardware-offline">
+        Hardware Disconnected
+      </span>
+    </div>
+
+    <!-- Right Actions -->
+    <div class="nav-actions">
+      <!-- Quick link to Register -->
+      <a href="/tcg/register" class="btn-nav-action" title="Open TCG Register Workstation">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span>Register Checkout</span>
+      </a>
+
+      <!-- Quick link to Pricing Engine -->
+      <a href="/tcg/pricing" class="btn-nav-action" title="Open Market Pricing Engine">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
         </svg>
         <span>Pricing Engine</span>
       </a>
+
       <!-- Return to Core Dashboard Navigation Action (Zero Dead-End Navigation) -->
       <a href="/" class="btn-nav-return" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 12H5M12 19l-7-7 7-7"/>
         </svg>
         <span>Return to Dashboard</span>
@@ -47,33 +74,60 @@
   </header>
 
   <!-- Notification Toast Container -->
-  <div id="toast-container"></div>
+  <div id="toast-container" class="toast-container"></div>
 
-  <!-- Primary Workstation Container -->
+  <!-- =========================================================================
+       Primary Workstation Container
+       ========================================================================= -->
   <main class="workstation-container">
 
-    <!-- LEFT COLUMN: Live Search, Inspector & Pricing Deck -->
+    <!-- =====================================================================
+         LEFT COLUMN: Rapid Entry Matrix, Inspector & Pricing Deck
+         ===================================================================== -->
     <section class="deck-panel">
       
-      <!-- Live Search & Barcode Scanner Bar -->
-      <div class="tcg-card search-card">
-        <div class="search-wrapper">
-          <div class="search-input-box">
-            <!-- Game Selector (MTG vs Pokémon) -->
-            <select id="intake-game-select" class="filter-select" style="margin-right: 0.6rem; font-weight: 700; background-color: #1e293b; color: #f8fafc; border: 1px solid var(--border-color); padding: 0.35rem 0.5rem;">
-              <option value="mtg" selected>Magic (MTG)</option>
+      <!-- Rapid Entry Matrix & Live Search Bar -->
+      <div class="tcg-panel-card search-card">
+        
+        <!-- Game Switcher & Direct Set / Number Lookup Toolbar -->
+        <div class="rapid-entry-toolbar">
+          <div class="rapid-toolbar-group">
+            <label class="rapid-label" for="intake-game-select">Game:</label>
+            <select id="intake-game-select" class="rapid-game-select">
+              <option value="mtg" selected>Magic: The Gathering (MTG)</option>
               <option value="pokemon">Pokémon TCG</option>
             </select>
-            <span class="search-icon">&#128269;</span>
+          </div>
+
+          <!-- Quick Collector Direct Input: [ Set ] [ # ] -->
+          <div class="rapid-direct-inputs">
+            <div class="rapid-input-wrap">
+              <span class="rapid-prefix">SET</span>
+              <input type="text" id="quickSetCodeInput" class="rapid-quick-input" placeholder="MH3" maxlength="8" autocomplete="off" />
+            </div>
+            <div class="rapid-input-wrap">
+              <span class="rapid-prefix">#</span>
+              <input type="text" id="quickCollectorNumInput" class="rapid-quick-input" placeholder="123" maxlength="10" autocomplete="off" />
+            </div>
+            <button type="button" id="btnQuickLookup" class="btn-rapid-lookup" title="Direct Set &amp; Collector # Lookup">
+              <span>Lookup</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Universal Name Autocomplete Bar -->
+        <div class="search-wrapper">
+          <div class="search-input-box" id="intakeSearchBox">
+            <span class="search-icon">🔍</span>
             <input 
               type="text" 
               id="card-search-input" 
               class="search-input" 
-              placeholder="Search card name (e.g. 'Pikachu' or 'Sol Ring') or scan code..."
+              placeholder="Search card name (e.g. 'Sol Ring', 'Pikachu') or scan collector barcode..."
               autocomplete="off"
               autofocus
             />
-            <span id="search-spinner" style="display:none; color: var(--accent-blue); font-size: 0.85rem; margin-right: 0.5rem;">Searching...</span>
+            <span id="search-spinner" class="search-spinner" style="display:none;">Searching...</span>
             <button type="button" id="search-clear-btn" class="search-clear-btn" title="Clear input">&times;</button>
             <span class="search-helper-tag">[ / ] Search</span>
           </div>
@@ -81,16 +135,17 @@
           <!-- Live Autocomplete Dropdown List -->
           <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
         </div>
+
       </div>
 
       <!-- Card Result Inspector & Pricing Deck -->
-      <div class="tcg-card inspector-card">
+      <div class="tcg-panel-card inspector-card">
         
         <!-- Empty State (No card selected) -->
-        <div id="inspector-empty" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-dim);">
-          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">&#127183;</div>
-          <h3 style="font-size: 1.15rem; color: var(--text-muted); margin-bottom: 0.4rem;">No Card Selected</h3>
-          <p style="font-size: 0.88rem;">Search for a card above or scan barcode / collector number to inspect pricing and stage buylist intake.</p>
+        <div id="inspector-empty" class="inspector-empty-state">
+          <div class="empty-icon">🎴</div>
+          <h3 class="empty-title">No Card Selected</h3>
+          <p class="empty-sub">Search for a card name or type [Set] and [#] above to inspect market benchmarks, grade condition, and stage buylist intake.</p>
         </div>
 
         <!-- Populated Inspector Content -->
@@ -112,11 +167,11 @@
                 </div>
                 <div id="card-type-line" class="card-type-line">Artifact</div>
                 <div class="card-badges-row">
-                  <span id="badge-game" class="badge" style="background: #6366f1; color: #fff;">MTG</span>
+                  <span id="badge-game" class="badge badge-game">MTG</span>
                   <span id="badge-rarity" class="badge badge-rare">Rare</span>
                   <span id="badge-set" class="badge badge-set">Set Title (CODE)</span>
                   <span id="badge-collector" class="badge badge-set">#000</span>
-                  <!-- Pokémon Gameplay Attributes -->
+                  <!-- Pokémon Attributes -->
                   <span id="badge-hp" class="badge" style="display:none; background: #dc2626; color: #fff; font-weight: 700;">120 HP</span>
                   <span id="badge-stage" class="badge" style="display:none; background: #475569; color: #fff;">Stage 1</span>
                   <span id="badge-type" class="badge" style="display:none; background: #eab308; color: #000; font-weight: 700;">Lightning</span>
@@ -143,9 +198,9 @@
                 </div>
               </div>
 
-              <!-- Finish Selector Matrix (Dynamic for MTG vs Pokémon) -->
+              <!-- Finish Selector Matrix -->
               <div class="matrix-section">
-                <span class="matrix-label">Finish Variant [1-4]</span>
+                <span class="matrix-label">Finish Variant</span>
                 <div id="finish-btn-group" class="btn-group">
                   <button type="button" class="btn-matrix btn-finish active" data-finish="nonfoil">Nonfoil (Regular)</button>
                   <button type="button" class="btn-matrix btn-finish" data-finish="foil">Foil / Holo</button>
@@ -153,10 +208,13 @@
                 </div>
               </div>
 
-              <!-- Physical Card Condition Matrix -->
+              <!-- Physical Card Condition Matrix with Distinct Colors -->
               <div class="matrix-section">
-                <span class="matrix-label">Physical Condition [Q, W, E, R, T]</span>
-                <div class="btn-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <span class="matrix-label" style="margin-bottom:0;">Physical Condition</span>
+                  <span style="font-size: 0.72rem; color: var(--tcg-text-subtle);">Hotkeys: [Q, W, E, R, T]</span>
+                </div>
+                <div class="btn-group condition-btn-group">
                   <button type="button" class="btn-matrix btn-cond cond-nm active" data-cond="NM">NM (100%)</button>
                   <button type="button" class="btn-matrix btn-cond cond-lp" data-cond="LP">LP (85%)</button>
                   <button type="button" class="btn-matrix btn-cond cond-mp" data-cond="MP">MP (70%)</button>
@@ -165,21 +223,21 @@
                 </div>
               </div>
 
-              <!-- Instant Buylist Calculator Widget -->
+              <!-- Dynamic Buylist Offer Display (Cash vs Credit) -->
               <div class="buylist-calc-card">
                 <div class="offer-display-box cash">
                   <div class="offer-title">
                     <span>Cash Offer (50%)</span>
                   </div>
-                  <div id="offer-cash-val" class="offer-value">$0.00</div>
+                  <div id="offer-cash-val" class="offer-value cash-val">$0.00</div>
                 </div>
 
                 <div class="offer-display-box credit">
                   <div class="offer-title">
-                    <span>Store Credit</span>
+                    <span>Store Credit Payout</span>
                     <span class="bonus-pill">+30% Bonus</span>
                   </div>
-                  <div id="offer-credit-val" class="offer-value">$0.00</div>
+                  <div id="offer-credit-val" class="offer-value credit-val">$0.00</div>
                 </div>
               </div>
 
@@ -206,12 +264,12 @@
               </div>
 
               <!-- Hardware NFC / Barcode Tag Pairing Control -->
-              <div class="hardware-pairing-box" style="margin-top: 1rem; margin-bottom: 1rem; padding: 0.85rem; background: rgba(15, 23, 42, 0.65); border: 1px solid var(--border-color); border-radius: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
-                  <label class="form-label" for="input-tag-id" style="margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem;">
+              <div class="hardware-pairing-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <label class="form-label" for="input-tag-id" style="margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--tcg-text-muted); display: flex; align-items: center; gap: 0.4rem;">
                     <span>🏷️</span> Hardware Tag ID / UID
                   </label>
-                  <button type="button" id="btn-pair-tag" class="btn-matrix" style="padding: 0.3rem 0.7rem; font-size: 0.78rem; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: var(--accent-sky); border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                  <button type="button" id="btn-pair-tag" class="btn-matrix" style="padding: 0.25rem 0.65rem; font-size: 0.76rem; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: var(--tcg-accent-sky); border-radius: 4px; cursor: pointer;">
                     <span>📡 Pair Hardware Tag</span>
                   </button>
                 </div>
@@ -220,7 +278,7 @@
                   id="input-tag-id" 
                   class="form-input" 
                   placeholder="Click 'Pair Hardware Tag' or scan/type 14-char UID or barcode..." 
-                  style="font-family: 'JetBrains Mono', monospace, Consolas; font-size: 0.88rem; width: 100%; box-sizing: border-box; transition: all 0.25s ease;" 
+                  style="font-family: 'JetBrains Mono', monospace; font-size: 0.86rem;" 
                 />
               </div>
 
@@ -240,43 +298,44 @@
       </div>
     </section>
 
-    <!-- RIGHT COLUMN: Staged Intake Queue (Cart) & Commit Controls -->
+    <!-- =====================================================================
+         RIGHT COLUMN: Staged Intake Buylist Queue & Batch Commits
+         ===================================================================== -->
     <section class="queue-panel">
-      <div class="tcg-card" style="flex: 1; display: flex; flex-direction: column;">
+      <div class="tcg-panel-card" style="flex: 1; display: flex; flex-direction: column;">
         
         <div class="queue-header">
           <div class="queue-title-box">
-            <h2 style="font-size: 1.15rem; font-weight: 700;">Staged Intake Queue</h2>
+            <h2 style="font-size: 1.15rem; font-weight: 700; margin:0;">Staged Intake Queue</h2>
             <span id="queue-badge-count" class="queue-badge">0 Cards</span>
           </div>
           <button type="button" id="btn-clear-queue" class="btn-clear-queue">Clear Queue</button>
         </div>
 
-        <div class="table-container" style="margin-top: 1rem; flex: 1;">
+        <div class="table-container" style="margin-top: 0.85rem; flex: 1;">
           <table class="queue-table">
             <thead>
               <tr>
-                <th>Card</th>
-                <th>Set</th>
-                <th>Variant</th>
-                <th>Qty</th>
-                <th>Cost</th>
-                <th>Retail</th>
-                <th>Subtotal</th>
-                <th></th>
+                <th style="width: 32%;">Card</th>
+                <th style="width: 14%;">Set</th>
+                <th style="width: 18%;">Variant</th>
+                <th style="width: 10%; text-align: center;">Qty</th>
+                <th style="width: 12%; text-align: right;">Cost</th>
+                <th style="width: 12%; text-align: right;">Retail</th>
+                <th style="width: 6%; text-align: center;"></th>
               </tr>
             </thead>
             <tbody id="queue-table-body"></tbody>
           </table>
 
           <div id="queue-empty-state" class="empty-queue-state">
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="21" r="1"></circle>
               <circle cx="20" cy="21" r="1"></circle>
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
-            <p>Queue is currently empty.</p>
-            <span style="font-size: 0.78rem;">Stage cards to review trade-in totals before committing.</span>
+            <p style="margin: 0.5rem 0 0.2rem 0; font-weight: 600;">Queue is currently empty.</p>
+            <span style="font-size: 0.78rem; color: var(--tcg-text-subtle);">Stage singles above to calculate running trade-in totals before committing batch.</span>
           </div>
         </div>
 
@@ -284,34 +343,56 @@
 
       <!-- Batch Intake Summary & Execution Panel -->
       <div class="queue-summary-card">
+        
+        <!-- Running Trade Payout Comparisons: Cash vs Store Credit -->
+        <div class="payout-comparison-banner">
+          <div class="payout-box cash-payout">
+            <span class="payout-label">Cash Buyout Total</span>
+            <span id="summary-total-cost" class="payout-val">$0.00</span>
+          </div>
+          <div class="payout-box credit-payout">
+            <span class="payout-label">Store Credit Payout (+30%)</span>
+            <span id="summary-total-credit-payout" class="payout-val">$0.00</span>
+          </div>
+        </div>
+
         <div class="summary-grid">
           <div class="summary-item">
             <span class="summary-item-label">Total Items</span>
             <span id="summary-total-cards" class="summary-item-val">0</span>
           </div>
           <div class="summary-item">
-            <span class="summary-item-label">Total Outlay (Cost)</span>
-            <span id="summary-total-cost" class="summary-item-val cost">$0.00</span>
-          </div>
-          <div class="summary-item">
             <span class="summary-item-label">Projected Retail</span>
             <span id="summary-total-retail" class="summary-item-val retail">$0.00</span>
           </div>
-          <div class="summary-item">
+          <div class="summary-item" style="grid-column: span 2;">
             <span class="summary-item-label">Projected Gross Profit</span>
             <span id="summary-margin" class="summary-item-val">$0.00 (0%)</span>
           </div>
         </div>
 
+        <!-- Optional Customer Attachment for Store Credit Deposits -->
+        <div class="intake-customer-attach" style="margin-top: 0.85rem; padding: 0.65rem 0.85rem; background: rgba(255,255,255,0.02); border: 1px solid var(--tcg-border-color); border-radius: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.78rem; color: var(--tcg-text-muted); font-weight: 600;">Trade-In Customer:</span>
+            <span id="intakeCustomerLabel" style="font-size: 0.78rem; font-weight: 700; color: var(--tcg-accent-sky);">None Attached (Cash Payout only)</span>
+          </div>
+          <div style="display: flex; gap: 0.4rem; margin-top: 0.4rem;">
+            <input type="text" id="intakeCustomerInput" placeholder="Enter customer Phone / Email / NFC UID..." style="flex: 1; background: var(--tcg-bg-main); border: 1px solid var(--tcg-border-color); color: var(--tcg-text-main); font-size: 0.78rem; padding: 0.35rem 0.65rem; border-radius: 4px; outline: none;" />
+            <button type="button" id="btnIntakeLookupCustomer" style="background: #1e293b; color: var(--tcg-accent-sky); border: 1px solid #334155; border-radius: 4px; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.65rem; cursor: pointer;">Lookup</button>
+          </div>
+        </div>
+
+        <!-- Commit Actions Row -->
         <div class="commit-actions-row">
           <button type="button" id="btn-commit-cash" class="btn-commit btn-commit-cash" disabled>
             <span>Commit Direct Purchase</span>
-            <span class="btn-commit-sub">Cash Outlay Payout</span>
+            <span class="btn-commit-sub">Cash Buyout Payout</span>
           </button>
           
           <button type="button" id="btn-commit-credit" class="btn-commit btn-commit-credit" disabled>
             <span>Commit as Trade-In</span>
-            <span class="btn-commit-sub">Store Credit Payout</span>
+            <span class="btn-commit-sub">Store Credit Payout (+30%)</span>
           </button>
         </div>
       </div>
@@ -319,8 +400,10 @@
 
   </main>
 
-  <!-- Addon Client JavaScript Engine -->
-  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/hardware_bridge.js') }}"></script>
-  <script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/intake.js') }}"></script>
+</div>
+
+<!-- Addon Client JavaScript Engine -->
+<script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/hardware_bridge.js') }}"></script>
+<script src="{{ url_for('tcg_pos.static', filename='tcg_pos/js/intake.js') }}"></script>
 </body>
 </html>

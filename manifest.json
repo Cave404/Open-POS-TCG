@@ -16,5 +16,15 @@
     "enable_cash_drawer": false,
     "enable_receipt_printer": true
   },
-  "settings_route": "/addons/tcg_pos/settings"
+  "settings_route": "/addons/tcg_pos/settings",
+  "default_pos_route": "/tcg/register",
+  "ui_extensions": {
+    "mode": "canvas_replace",
+    "canvas_label": "🃏 TCG Singles & Intake",
+    "canvas_template": "tcg_pos/canvas.html",
+    "standalone_route": "/tcg/register",
+    "slots": [
+      { "slot": "pos:header_actions", "template": "tcg_pos/header_widget.html" }
+    ]
+  }
 }
