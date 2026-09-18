@@ -14,7 +14,7 @@ class CoreCustomerClient:
         self.base_url = (base_url or "http://127.0.0.1:5000").rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "OpenPOS-TCG/1.0.0 (Internal Client)",
+            "User-Agent": "OpenPOS-TCG/1.0.1 (Internal Client)",
             "Accept": "application/json"
         })
 

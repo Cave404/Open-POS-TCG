@@ -97,7 +97,7 @@ class BaseTCGProvider(ABC):
         self._last_request_time: float = 0.0
 
         # Enforce compliant descriptive User-Agent
-        self.user_agent = user_agent or f"OpenPOS-TCG/1.0.0 (Windows Native; +https://github.com/OpenPOS-Platform/Open-POS-TCG)"
+        self.user_agent = user_agent or f"OpenPOS-TCG/1.0.1 (Windows Native; +https://github.com/OpenPOS-Platform/Open-POS-TCG)"
 
         # Resolve isolated data path defensively for Windows packaging
         root_data = custom_data_dir or (Path.cwd() / "data")

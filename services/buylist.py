@@ -17,13 +17,13 @@ from typing import Any, Dict, List, Optional, Union
 from providers.base import NormalizedCard
 
 
-# Standard collectible card condition multipliers
+# Standard collectible card condition multipliers (OpenPOS v1.0.1 donor standards)
 DEFAULT_CONDITION_MULTIPLIERS: Dict[str, float] = {
     "NM": 1.00,  # Near Mint: pristine, pack-fresh
     "LP": 0.85,  # Lightly Played: minor edge wear or faint scratches
     "MP": 0.70,  # Moderately Played: visible whitening, minor creases
     "HP": 0.50,  # Heavily Played: heavy wear, major whitening, micro-creases
-    "DMG": 0.25  # Damaged: structural damage, severe bends, tears, ink marks
+    "DMG": 0.30   # Damaged: structural damage, severe bends, tears, ink marks
 }
 
 # Synonyms and grading tier aliases mapped to standard TCG abbreviations
@@ -121,8 +121,8 @@ class BuylistCalculator:
 
     def __init__(
         self,
-        default_cash_percentage: float = 0.50,
-        credit_bonus_percentage: float = 0.30,
+        default_cash_percentage: Optional[float] = None,
+        credit_bonus_percentage: Optional[float] = None,
         credit_percentage: Optional[float] = None,
         condition_multipliers: Optional[Dict[str, float]] = None,
         minimum_cash_offer: float = 0.0,
@@ -130,22 +130,50 @@ class BuylistCalculator:
     ):
         """
         Initialize the pricing calculator with store trade margins.
+        Pulls default rates dynamically from SettingsService if not explicitly specified.
 
-        :param default_cash_percentage: Base cash payout ratio relative to market value (e.g., 0.50 = 50%).
+        :param default_cash_percentage: Base cash payout ratio relative to market value (e.g., 0.60 = 60%).
         :param credit_bonus_percentage: Trade-in credit bonus relative to cash offer (e.g., 0.30 = +30% over cash).
         :param credit_percentage: Optional direct credit payout ratio relative to market value (overrides bonus).
         :param condition_multipliers: Dict mapping condition codes (NM, LP, MP, HP, DMG) to value multipliers.
         :param minimum_cash_offer: Absolute minimum floor for any cash offer.
         :param minimum_credit_offer: Absolute minimum floor for any store credit offer.
         """
-        if not (0.0 <= default_cash_percentage <= 1.0):
+        # Resolve dynamic cash payout rate from settings if not explicitly provided
+        if default_cash_percentage is None:
+            try:
+                from services.settings_service import get_setting
+                cfg_cash = get_setting("cash_payout_rate", 60.0)
+                default_cash_percentage = (float(cfg_cash) / 100.0) if float(cfg_cash) > 1.0 else float(cfg_cash)
+            except Exception:
+                default_cash_percentage = 0.60
+
+        if not (0.0 <= float(default_cash_percentage) <= 1.0):
             raise ValueError(f"default_cash_percentage must be between 0.0 and 1.0, got {default_cash_percentage}")
 
+        # Resolve dynamic store credit payout rate from settings if no explicit credit parameters passed
+        if credit_percentage is None and credit_bonus_percentage is None:
+            try:
+                from services.settings_service import get_setting
+                cfg_credit = get_setting("store_credit_payout_rate", 80.0)
+                credit_percentage = (float(cfg_credit) / 100.0) if float(cfg_credit) > 1.0 else float(cfg_credit)
+            except Exception:
+                credit_percentage = 0.80
+
         self.default_cash_percentage = float(default_cash_percentage)
-        self.credit_bonus_percentage = float(credit_bonus_percentage)
+        self.credit_bonus_percentage = float(credit_bonus_percentage) if credit_bonus_percentage is not None else 0.30
         self.credit_percentage = float(credit_percentage) if credit_percentage is not None else None
 
-        # Build condition multipliers map
+        # Build condition multipliers map from settings or defaults
+        if condition_multipliers is None:
+            try:
+                from services.settings_service import get_setting
+                cfg_conds = get_setting("condition_multipliers", DEFAULT_CONDITION_MULTIPLIERS)
+                if isinstance(cfg_conds, dict) and cfg_conds:
+                    condition_multipliers = cfg_conds
+            except Exception:
+                pass
+
         self.condition_multipliers = dict(DEFAULT_CONDITION_MULTIPLIERS)
         if condition_multipliers:
             for cond, mult in condition_multipliers.items():

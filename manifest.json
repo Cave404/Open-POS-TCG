@@ -1,7 +1,7 @@
 {
   "id": "tcg_pos",
   "name": "TCG POS & Singles Engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "OpenPOS Platform",
   "description": "Magic: The Gathering & TCG singles intake, market pricing, and buylist calculator for Open-POS Community.",
   "category": "Desktop_Apps",
@@ -12,11 +12,24 @@
   "dependencies": [
     "requests"
   ],
+  "config_route": "/tcg/settings",
+  "default_route": "/tcg",
   "settings": {
+    "cash_payout_rate": 60.0,
+    "store_credit_payout_rate": 80.0,
+    "daily_trade_limit": 10,
+    "condition_multipliers": {
+      "NM": 1.0,
+      "LP": 0.85,
+      "MP": 0.70,
+      "HP": 0.50,
+      "DMG": 0.30
+    },
+    "market_refresh_days": 1,
     "enable_cash_drawer": false,
     "enable_receipt_printer": true
   },
-  "settings_route": "/addons/tcg_pos/settings",
+  "settings_route": "/tcg/settings",
   "default_pos_route": "/tcg/register",
   "ui_extensions": {
     "mode": "canvas_replace",

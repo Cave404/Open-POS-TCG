@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG POS - Card Database Explorer</title>
+
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-app: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-header: #182234;
+      --bg-input: #0b1120;
+      --border-color: #334155;
+      --border-focus: #3b82f6;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #8b5cf6;
+
+      --cond-nm: #10b981;
+      --cond-lp: #3b82f6;
+      --cond-mp: #f59e0b;
+      --cond-hp: #f97316;
+      --cond-dmg: #ef4444;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.35);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.45);
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* OpenPOS Navbar */
+    .tcg-navbar {
+      background-color: #111827;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-md);
+    }
+
+    .tcg-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .tcg-brand-badge {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 900;
+      padding: 0.25rem 0.55rem;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .tcg-nav-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .tcg-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .btn-nav-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: #1e293b;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.4rem 0.8rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .btn-nav-action:hover {
+      background: #334155;
+      border-color: #475569;
+      color: #fff;
+    }
+
+    .btn-nav-action.primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border-color: #2563eb;
+      color: #fff;
+    }
+
+    /* Main Container */
+    .db-main-layout {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0.85rem 1.25rem;
+      gap: 0.75rem;
+      overflow: hidden;
+    }
+
+    /* Metrics & Status Bar */
+    .metrics-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #131d2e;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 1rem;
+      flex-shrink: 0;
+      gap: 1rem;
+    }
+
+    .metrics-group {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .metric-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.25rem 0.65rem;
+      border-radius: 4px;
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+    }
+
+    .metric-badge.green { border-color: #059669; color: #34d399; }
+    .metric-badge.amber { border-color: #d97706; color: #fbbf24; }
+    .metric-badge.blue { border-color: #2563eb; color: #60a5fa; }
+
+    /* Filter Toolbar */
+    .filter-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem;
+      flex-shrink: 0;
+    }
+
+    .search-box-wrapper {
+      position: relative;
+      flex-grow: 1;
+      min-width: 220px;
+      max-width: 340px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 0.45rem 2rem 0.45rem 0.75rem;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .filter-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.45rem 0.65rem;
+      cursor: pointer;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    .stock-toggles {
+      display: flex;
+      gap: 2px;
+      background: #111827;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+    }
+
+    .stock-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.35rem 0.65rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .stock-btn.active {
+      background: var(--accent-blue);
+      color: #fff;
+    }
+
+    /* Bulk Operations Bar */
+    .bulk-bar {
+      background: #281d09;
+      border: 1px solid #b45309;
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.85rem;
+      display: none;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      animation: fadeIn 0.15s ease;
+    }
+
+    .bulk-bar.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bulk-count-badge {
+      background: #f59e0b;
+      color: #000;
+      font-weight: 900;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    /* Data Table Container */
+    .table-container {
+      flex: 1;
+      min-height: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      overflow-y: auto;
+      box-shadow: var(--shadow-md);
+      position: relative;
+    }
+
+    .db-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .db-table th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #111827;
+      color: var(--text-muted);
+      font-weight: 800;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    .db-table td {
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid #1e293b;
+      vertical-align: middle;
+      color: var(--text-main);
+    }
+
+    .db-table tbody tr {
+      transition: background-color 0.1s ease;
+    }
+
+    .db-table tbody tr:hover {
+      background-color: #243147;
+    }
+
+    .db-table tbody tr.selected {
+      background-color: rgba(59, 130, 246, 0.15);
+    }
+
+    /* Thumbnail Zoom */
+    .card-thumb {
+      width: 36px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      cursor: zoom-in;
+      transition: transform 0.15s ease;
+    }
+
+    .card-thumb:hover {
+      transform: scale(1.15);
+      z-index: 20;
+    }
+
+    /* Inline Input Styles */
+    .inline-input {
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.25rem 0.4rem;
+      width: 68px;
+      text-align: right;
+      transition: border-color 0.15s ease;
+    }
+
+    .inline-input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      background: #070b13;
+    }
+
+    /* Condition and Status Badges */
+    .cond-pill {
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+    .cond-pill.NM { background: var(--cond-nm); color: #000; }
+    .cond-pill.LP { background: var(--cond-lp); color: #fff; }
+    .cond-pill.MP { background: var(--cond-mp); color: #000; }
+    .cond-pill.HP { background: var(--cond-hp); color: #fff; }
+    .cond-pill.DMG { background: var(--cond-dmg); color: #fff; }
+
+    .tag-pill {
+      font-family: monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: #064e3b;
+      color: #6ee7b7;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      border: 1px solid #059669;
+    }
+
+    .tag-empty {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    /* Table Action Buttons */
+    .btn-row-action {
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.5rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: all 0.1s ease;
+    }
+
+    .btn-row-action:hover {
+      background: #334155;
+      color: #fff;
+    }
+
+    .btn-row-action.inspect:hover { border-color: #3b82f6; color: #60a5fa; }
+    .btn-row-action.print:hover { border-color: #f59e0b; color: #fbbf24; }
+
+    /* Lightbox Modal */
+    #lightboxModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+
+    #lightboxModal.active {
+      display: flex;
+    }
+
+    #lightboxImg {
+      max-height: 88vh;
+      max-width: 88vw;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Metadata Inspect Modal */
+    #inspectModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #inspectModal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      width: 90%;
+      max-width: 650px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .modal-header {
+      background: #111827;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 1.25rem;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .json-code {
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: #38bdf8;
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    /* Pagination Bar */
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #111827;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.85rem;
+      flex-shrink: 0;
+      font-size: 0.82rem;
+    }
+
+    .page-btn {
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.3rem 0.65rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .page-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Toast */
+    #toastContainer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10500;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .toast-pill {
+      min-width: 260px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.82rem;
+      box-shadow: var(--shadow-lg);
+      transform: translateX(120%);
+      transition: transform 0.2s ease-out;
+    }
+    .toast-pill.show { transform: translateX(0); }
+    .toast-success { background: #059669; border-left: 4px solid #34d399; }
+    .toast-error { background: #dc2626; border-left: 4px solid #f87171; }
+    .toast-info { background: #0284c7; border-left: 4px solid #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer"></div>
+
+  <!-- Lightbox Image Modal -->
+  <div id="lightboxModal" onclick="this.classList.remove('active')">
+    <img id="lightboxImg" src="" alt="Full card art" />
+  </div>
+
+  <!-- Metadata Inspect Modal -->
+  <div id="inspectModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="inspectTitle" style="font-size: 1rem; font-weight: 800; color: #fff;">Card Metadata</h3>
+        <button class="btn-row-action" onclick="document.getElementById('inspectModal').classList.remove('active')">&times; Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="inspectCardSummary" style="font-weight: 600; color: var(--text-muted);"></div>
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-dim);">Polymorphic API Attributes (Mana, Type, Oracle, Legalities, HP)</div>
+        <div id="inspectMetadataBox" class="json-code"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top OpenPOS Header -->
+  <header class="tcg-navbar">
+    <div class="tcg-nav-brand">
+      <span class="tcg-brand-badge">TCG POS</span>
+      <h1 class="tcg-nav-title">🗄️ Card Database Explorer</h1>
+    </div>
+    <div class="tcg-nav-actions">
+      <!-- Quick link to Workstation Hub -->
+      <a href="/tcg" class="btn-nav-action" title="TCG Workstation Hub">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Workstation Hub</span>
+      </a>
+
+      <!-- Register Shortcut -->
+      <a href="/tcg/register" class="btn-nav-action" title="POS Register Checkout">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        <span>Register</span>
+      </a>
+
+      <!-- Intake Shortcut -->
+      <a href="/tcg/intake" class="btn-nav-action" title="Card Intake & Buylist">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Intake</span>
+      </a>
+
+      <!-- Pricing Shortcut -->
+      <a href="/tcg/pricing" class="btn-nav-action" title="Pricing Engine">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Pricing</span>
+      </a>
+
+      <!-- Settings Shortcut -->
+      <a href="/tcg/settings" class="btn-nav-action" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Settings</span>
+      </a>
+
+      <!-- Return to Core Dashboard Action -->
+      <a href="/" class="btn-nav-action primary" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Workstation Layout -->
+  <main class="db-main-layout">
+
+    <!-- Live Metrics Bar -->
+    <div class="metrics-bar">
+      <div class="metrics-group">
+        <span class="metric-badge blue" id="metricTotalMatches">Loading catalog...</span>
+        <span class="metric-badge green" id="metricInStockCount">📦 In Stock: --</span>
+        <span class="metric-badge amber" id="metricFilteredValuation">💰 Retail Value: $0.00</span>
+      </div>
+      <div>
+        <span style="font-size: 0.78rem; color: var(--text-dim); font-weight: 600;">Double-click or edit Price / Qty inline</span>
+      </div>
+    </div>
+
+    <!-- Filter Toolbar -->
+    <div class="filter-bar">
+      <!-- Search -->
+      <div class="search-box-wrapper">
+        <input 
+          type="text" 
+          id="dbSearchInput" 
+          class="search-input" 
+          placeholder="Search name, SKU, tag UID, #..." 
+        />
+        <button id="dbSearchClear" class="search-clear-btn" onclick="clearSearch()">&times;</button>
+      </div>
+
+      <!-- Game Selector -->
+      <select id="dbFilterGame" class="filter-select" onchange="runQuery(1)">
+        <option value="all">Game: All Collectibles</option>
+        <option value="mtg">Magic: The Gathering</option>
+        <option value="pokemon">Pokémon TCG</option>
+      </select>
+
+      <!-- Set Code -->
+      <input 
+        type="text" 
+        id="dbFilterSet" 
+        class="search-input" 
+        style="width: 100px; text-transform: uppercase;" 
+        placeholder="Set Code" 
+      />
+
+      <!-- Rarity Selector -->
+      <select id="dbFilterRarity" class="filter-select" onchange="runQuery(1)">
+        <option value="">Rarity: All</option>
+        <option value="common">Common</option>
+        <option value="uncommon">Uncommon</option>
+        <option value="rare">Rare</option>
+        <option value="mythic">Mythic</option>
+        <option value="special">Special</option>
+      </select>
+
+      <!-- Finish Selector -->
+      <select id="dbFilterFinish" class="filter-select" onchange="runQuery(1)">
+        <option value="">Finish: All</option>
+        <option value="nonfoil">Non-foil</option>
+        <option value="foil">Foil / Holo</option>
+        <option value="etched">Etched</option>
+        <option value="reverse_holo">Reverse Holo</option>
+      </select>
+
+      <!-- Condition Selector -->
+      <select id="dbFilterCondition" class="filter-select" onchange="runQuery(1)">
+        <option value="">Condition: All</option>
+        <option value="NM">NM (Near Mint)</option>
+        <option value="LP">LP (Lightly Played)</option>
+        <option value="MP">MP (Mod. Played)</option>
+        <option value="HP">HP (Heavily Played)</option>
+        <option value="DMG">DMG (Damaged)</option>
+      </select>
+
+      <!-- Stock Quick-Toggles -->
+      <div class="stock-toggles">
+        <button type="button" class="stock-btn active" data-stock="all" onclick="setStockFilter('all')">All</button>
+        <button type="button" class="stock-btn" data-stock="in_stock" onclick="setStockFilter('in_stock')">In Stock</button>
+        <button type="button" class="stock-btn" data-stock="low_stock" onclick="setStockFilter('low_stock')">Low Stock (&le;2)</button>
+        <button type="button" class="stock-btn" data-stock="out_of_stock" onclick="setStockFilter('out_of_stock')">Out of Stock (0)</button>
+      </div>
+
+      <!-- Sort Dropdown -->
+      <select id="dbSortFilter" class="filter-select" onchange="runQuery(1)">
+        <option value="newest">Sort: Recently Updated</option>
+        <option value="oldest">Sort: Oldest Updated</option>
+        <option value="name_asc">Sort: Name (A &rarr; Z)</option>
+        <option value="price_desc">Sort: Price (High &rarr; Low)</option>
+        <option value="price_asc">Sort: Price (Low &rarr; High)</option>
+        <option value="qty_desc">Sort: Quantity (High &rarr; Low)</option>
+      </select>
+    </div>
+
+    <!-- Batch Operations Bar (Appears when cards are checked) -->
+    <div id="bulkOperationsBar" class="bulk-bar">
+      <span class="bulk-count-badge" id="bulkSelectedCount">0 Selected</span>
+      <select id="bulkActionSelect" class="filter-select" style="background: #111827;">
+        <option value="">-- Select Bulk Operation --</option>
+        <option value="set_market_price">📈 Set Sell Price to Upstream Market Price</option>
+        <option value="offset_p10">💹 Increase Sell Price by +10%</option>
+        <option value="offset_m10">📉 Discount Sell Price by -10%</option>
+        <option value="clear_tags">🏷️ Clear Bound NFC / Barcode Tags</option>
+        <option value="zero_stock">📦 Mark Selected Out of Stock (Qty = 0)</option>
+      </select>
+      <button type="button" class="btn-row-action print" onclick="executeBulkAction()">Apply Batch Action</button>
+      <button type="button" class="btn-row-action" style="margin-left: auto;" onclick="clearSelection()">Deselect All</button>
+    </div>
+
+    <!-- Data Grid -->
+    <div class="table-container">
+      <table class="db-table">
+        <thead>
+          <tr>
+            <th style="width: 32px; text-align: center;">
+              <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" />
+            </th>
+            <th style="width: 48px;">Art</th>
+            <th>Card Name &amp; SKU</th>
+            <th>Set</th>
+            <th style="width: 50px;">#</th>
+            <th>Finish</th>
+            <th>Cond</th>
+            <th style="width: 80px; text-align: right;">Qty</th>
+            <th style="width: 80px; text-align: right;">Cost Basis</th>
+            <th style="width: 85px; text-align: right;">Sell Price</th>
+            <th style="width: 80px; text-align: right;">Market</th>
+            <th>Tag / UID</th>
+            <th style="text-align: right; padding-right: 1rem;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="dbTableBody">
+          <tr>
+            <td colspan="13" style="text-align: center; padding: 3rem; color: var(--text-dim);">
+              Loading catalog singles...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Footer -->
+    <div class="pagination-bar">
+      <div id="paginationInfo" style="color: var(--text-muted);">Showing 0 items</div>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button type="button" id="btnPrevPage" class="page-btn" onclick="changePage(-1)">&larr; Previous</button>
+        <span id="pageCounter" style="font-weight: 700; color: #fff;">Page 1 of 1</span>
+        <button type="button" id="btnNextPage" class="page-btn" onclick="changePage(1)">Next &rarr;</button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let currentQueryState = {
+      page: 1,
+      limit: 50,
+      stock_status: 'all',
+      selectedIds: new Set()
+    };
+    let currentLoadedItems = [];
+
+    // --- Toast Notifications ---
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast-pill toast-${type}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 250);
+      }, 3000);
+    }
+
+    // --- Stock Filter Toggles ---
+    function setStockFilter(status) {
+      currentQueryState.stock_status = status;
+      document.querySelectorAll('.stock-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.stock === status);
+      });
+      runQuery(1);
+    }
+
+    // --- Query Execution ---
+    let searchDebounceTimer = null;
+    document.getElementById('dbSearchInput').addEventListener('input', () => {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => runQuery(1), 250);
+    });
+    document.getElementById('dbFilterSet').addEventListener('input', () => {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => runQuery(1), 300);
+    });
+
+    function clearSearch() {
+      document.getElementById('dbSearchInput').value = '';
+      runQuery(1);
+    }
+
+    async function runQuery(page = 1) {
+      currentQueryState.page = page;
+      const params = new URLSearchParams({
+        page: currentQueryState.page,
+        limit: currentQueryState.limit,
+        search: document.getElementById('dbSearchInput').value.trim(),
+        game: document.getElementById('dbFilterGame').value,
+        set_code: document.getElementById('dbFilterSet').value.trim().toLowerCase(),
+        rarity: document.getElementById('dbFilterRarity').value,
+        finish: document.getElementById('dbFilterFinish').value,
+        condition: document.getElementById('dbFilterCondition').value,
+        stock_status: currentQueryState.stock_status,
+        sort: document.getElementById('dbSortFilter').value
+      });
+
+      const tbody = document.getElementById('dbTableBody');
+      tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 2rem; color: var(--text-dim);">Fetching matching inventory...</td></tr>`;
+
+      try {
+        const resp = await fetch(`/tcg/api/database/query?${params.toString()}`);
+        const data = await resp.json();
+
+        if (data.success) {
+          currentLoadedItems = data.items || [];
+          renderRows(currentLoadedItems);
+          updateMetricsAndPagination(data);
+        } else {
+          tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; color: var(--accent-red); padding: 2rem;">Error: ${data.error}</td></tr>`;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; color: var(--accent-red); padding: 2rem;">Network error loading inventory: ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderRows(items) {
+      const tbody = document.getElementById('dbTableBody');
+      tbody.innerHTML = '';
+
+      if (!items || items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align: center; padding: 3rem; color: var(--text-muted);">No card singles matched your search criteria.</td></tr>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.id = `row-${item.id}`;
+        if (currentQueryState.selectedIds.has(item.id)) tr.classList.add('selected');
+
+        const thumbSrc = item.image_path ? `/tcg/art/${item.image_path.replace(/^data\/cache\/tcg_art\//, '')}` : (item.image_uri || '/addons/tcg_pos/static/placeholder_card.png');
+        const isChecked = currentQueryState.selectedIds.has(item.id);
+
+        tr.innerHTML = `
+          <td style="text-align: center;">
+            <input type="checkbox" class="row-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''} onchange="toggleItemSelect(${item.id}, this.checked)" />
+          </td>
+          <td>
+            <img class="card-thumb" src="${thumbSrc}" alt="${item.name}" onclick="openLightbox('${thumbSrc}')" onerror="this.src='/addons/tcg_pos/static/placeholder_card.png'" />
+          </td>
+          <td>
+            <div style="font-weight: 700; color: #fff;">${item.name}</div>
+            <div style="font-size: 0.72rem; color: var(--text-dim); font-family: monospace;">${item.sku || 'TCG-' + item.id}</div>
+          </td>
+          <td>
+            <span style="font-weight: 800; font-size: 0.78rem; text-transform: uppercase; color: #38bdf8;">${item.set_code}</span>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">${item.set_name}</div>
+          </td>
+          <td style="font-weight: 700; color: var(--text-muted);">${item.collector_number}</td>
+          <td style="text-transform: capitalize; font-size: 0.8rem;">${item.finish}</td>
+          <td><span class="cond-pill ${item.condition}">${item.condition}</span></td>
+          <td style="text-align: right;">
+            <input type="number" min="0" step="1" class="inline-input" value="${item.quantity}" onchange="saveInlineField(${item.id}, 'quantity', this.value)" />
+          </td>
+          <td style="text-align: right; color: var(--text-dim); font-size: 0.8rem;">
+            $${Number(item.cost_basis || 0).toFixed(2)}
+          </td>
+          <td style="text-align: right;">
+            <input type="number" min="0" step="0.01" class="inline-input" style="color: #34d399;" value="${Number(item.sell_price || 0).toFixed(2)}" onchange="saveInlineField(${item.id}, 'sell_price', this.value)" />
+          </td>
+          <td style="text-align: right; font-weight: 700; color: var(--text-muted);">
+            ${item.market_price ? '$' + Number(item.market_price).toFixed(2) : '--'}
+          </td>
+          <td>
+            ${item.custom_tag_id ? `<span class="tag-pill">${item.custom_tag_id}</span>` : `<span class="tag-empty">Unlinked</span>`}
+          </td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn-row-action inspect" onclick="inspectCard(${item.id})">🔍 Inspect</button>
+            <button class="btn-row-action print" onclick="printCardLabel(${item.id})">🏷️ Print</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateMetricsAndPagination(data) {
+      document.getElementById('metricTotalMatches').textContent = `🔍 Total Matches: ${data.total}`;
+      document.getElementById('metricInStockCount').textContent = `📦 In Stock: ${data.filtered_in_stock}`;
+      document.getElementById('metricFilteredValuation').textContent = `💰 Retail Value: $${Number(data.filtered_valuation).toFixed(2)}`;
+
+      document.getElementById('paginationInfo').textContent = `Showing page ${data.page} of ${data.total_pages} (${data.total} cards)`;
+      document.getElementById('pageCounter').textContent = `Page ${data.page} of ${data.total_pages}`;
+
+      document.getElementById('btnPrevPage').disabled = data.page <= 1;
+      document.getElementById('btnNextPage').disabled = data.page >= data.total_pages;
+    }
+
+    function changePage(delta) {
+      runQuery(currentQueryState.page + delta);
+    }
+
+    // --- Inline Field Update ---
+    async function saveInlineField(itemId, field, value) {
+      try {
+        const resp = await fetch(`/tcg/api/database/${itemId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [field]: value })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(`Saved #${itemId} ${field} &rarr; ${value}`, 'success');
+        } else {
+          showToast(data.error || 'Update failed', 'error');
+        }
+      } catch (err) {
+        showToast('Network error: ' + err.message, 'error');
+      }
+    }
+
+    // --- Selection and Bulk Bar ---
+    function toggleItemSelect(id, checked) {
+      if (checked) {
+        currentQueryState.selectedIds.add(id);
+      } else {
+        currentQueryState.selectedIds.delete(id);
+      }
+      const row = document.getElementById(`row-${id}`);
+      if (row) row.classList.toggle('selected', checked);
+      updateBulkBar();
+    }
+
+    function toggleSelectAll(checked) {
+      currentLoadedItems.forEach(item => {
+        if (checked) currentQueryState.selectedIds.add(item.id);
+        else currentQueryState.selectedIds.delete(item.id);
+        const row = document.getElementById(`row-${item.id}`);
+        if (row) row.classList.toggle('selected', checked);
+      });
+      document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
+      updateBulkBar();
+    }
+
+    function clearSelection() {
+      currentQueryState.selectedIds.clear();
+      document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+      document.querySelectorAll('.db-table tbody tr').forEach(r => r.classList.remove('selected'));
+      document.getElementById('selectAllCheckbox').checked = false;
+      updateBulkBar();
+    }
+
+    function updateBulkBar() {
+      const bar = document.getElementById('bulkOperationsBar');
+      const count = currentQueryState.selectedIds.size;
+      document.getElementById('bulkSelectedCount').textContent = `${count} Selected`;
+      bar.classList.toggle('active', count > 0);
+    }
+
+    async function executeBulkAction() {
+      const select = document.getElementById('bulkActionSelect');
+      const action = select.value;
+      if (!action) {
+        showToast('Please choose a bulk action first.', 'info');
+        return;
+      }
+
+      const item_ids = Array.from(currentQueryState.selectedIds);
+      let payload = { item_ids, action };
+
+      if (action === 'offset_p10') {
+        payload.action = 'offset_percent';
+        payload.percent = 10.0;
+      } else if (action === 'offset_m10') {
+        payload.action = 'offset_percent';
+        payload.percent = -10.0;
+      }
+
+      try {
+        const resp = await fetch('/tcg/api/database/bulk-adjust', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message, 'success');
+          clearSelection();
+          runQuery(currentQueryState.page);
+        } else {
+          showToast(data.error || 'Bulk operation failed', 'error');
+        }
+      } catch (err) {
+        showToast('Network error during bulk action: ' + err.message, 'error');
+      }
+    }
+
+    // --- Lightbox ---
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('lightboxModal').classList.add('active');
+    }
+
+    // --- Metadata Inspect ---
+    function inspectCard(id) {
+      const item = currentLoadedItems.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('inspectTitle').textContent = `${item.name} (${item.set_code.toUpperCase()} #${item.collector_number})`;
+      document.getElementById('inspectCardSummary').textContent = `Finish: ${item.finish} | Condition: ${item.condition} | Sell Price: $${Number(item.sell_price).toFixed(2)} | In Stock: ${item.quantity}`;
+      document.getElementById('inspectMetadataBox').textContent = JSON.stringify(item.api_metadata || {}, null, 2);
+
+      document.getElementById('inspectModal').classList.add('active');
+    }
+
+    // --- Print Label Action ---
+    async function printCardLabel(id) {
+      try {
+        const resp = await fetch(`/tcg/api/items/${id}/label-payload`);
+        const data = await resp.json();
+        if (data.sku) {
+          showToast(`Label spooled for ${data.display_name} (${data.sku})`, 'info');
+        } else {
+          showToast('Failed to fetch label payload.', 'error');
+        }
+      } catch (err) {
+        showToast('Label error: ' + err.message, 'error');
+      }
+    }
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', () => {
+      runQuery(1);
+    });
+  </script>
+</body>
+</html>

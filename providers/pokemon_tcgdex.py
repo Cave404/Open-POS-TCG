@@ -27,7 +27,7 @@ class PokemonTCGdexProvider(BaseTCGProvider):
 
     def __init__(
         self,
-        user_agent: str = "OpenPOS-TCG/1.0.0 (TCGdex Engine; +https://github.com/OpenPOS-Platform/Open-POS-TCG)",
+        user_agent: str = "OpenPOS-TCG/1.0.1 (TCGdex Engine; +https://github.com/OpenPOS-Platform/Open-POS-TCG)",
         custom_data_dir: Optional[Path] = None
     ):
         super().__init__(

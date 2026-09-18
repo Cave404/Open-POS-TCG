@@ -39,4 +39,13 @@ __all__ = [
     "SettlementResult",
     "InsufficientStockError",
     "InvalidTenderError",
+    "SettingsService",
 ]
+
+from .settings_service import (
+    SettingsService,
+    get_setting,
+    set_setting,
+    get_all_settings,
+    update_settings,
+)

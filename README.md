@@ -37,7 +37,7 @@ OpenPOS-TCG is built to operate as a polite, responsible ecosystem partner to co
 
 ```text
 Open-POS-TCG/
-├── manifest.json                  # Core Target API v1.0.0 Addon Manifest
+├── manifest.json                  # Core Target API v1.0.1 Addon Manifest
 ├── plugin.py                     # Entrypoint & Blueprint registration
 ├── models.py                     # Polymorphic singles_inventory & transaction models
 ├── migrations/                   # SQLite & PostgreSQL DDL migration scripts
@@ -50,12 +50,15 @@ Open-POS-TCG/
 │   ├── buylist_settlement.py     # Intake batch committing
 │   ├── checkout_service.py       # Atomic sales decrements & tender handling
 │   ├── core_customer_client.py   # OpenPOS Core REST API Bridge
-│   └── market_refresher.py       # Modular, non-blocking pricing updater
+│   ├── market_refresher.py       # Modular, non-blocking pricing updater
+│   └── settings_service.py       # Thread-safe persistent configuration
 ├── routes/                       # Flask Blueprint Routes
-│   ├── intake.py                 # Intake workstation & card search
-│   ├── inventory.py              # Inventory grid & label payloads
+│   ├── main.py                   # Workstation Hub & KPI aggregates
 │   ├── register.py               # POS checkout & universal tag resolver
+│   ├── intake.py                 # Intake workstation & card search
+│   ├── database.py               # Dedicated Card Database Explorer
 │   ├── pricing.py                # Market sync triggers & alerts
+│   ├── settings.py               # Trade-in rules & thumbnail maintenance
 │   └── internal.py               # Inter-addon webhooks (ghost tag wiper)
 ├── static/tcg_pos/               # Scoped assets (hardware_bridge.js, CSS)
 └── templates/tcg_pos/            # Scoped views adhering to OpenPOS UI standards

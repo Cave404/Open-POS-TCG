@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG POS - Workstation Command Center</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-app: #0b0f19;
+      --bg-card: #151d2d;
+      --bg-card-hover: #1b263b;
+      --bg-card-header: #101725;
+      --border-color: #27354a;
+      --border-accent: #3b82f6;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #8b5cf6;
+      --accent-cyan: #06b6d4;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.6);
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* OpenPOS Top Navigation Header */
+    .tcg-navbar {
+      background-color: #0c121e;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.85rem 1.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-md);
+    }
+
+    .tcg-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .tcg-brand-badge {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #000;
+      font-size: 0.75rem;
+      font-weight: 900;
+      padding: 0.3rem 0.6rem;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .tcg-nav-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .tcg-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn-nav-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #151d2d;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.45rem 0.9rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .btn-nav-action:hover {
+      background: #1e293b;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+
+    .btn-nav-action.primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border-color: #2563eb;
+      color: #fff;
+    }
+
+    .btn-nav-action.primary:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+
+    /* Main Container */
+    .hub-container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1.5rem 3rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      width: 100%;
+    }
+
+    /* KPI Summary Row */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 1.35rem 1.5rem;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: #3b82f6;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+    }
+
+    .kpi-card.blue::before { background: var(--accent-blue); }
+    .kpi-card.green::before { background: var(--accent-green); }
+    .kpi-card.amber::before { background: var(--accent-amber); }
+
+    .kpi-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .kpi-value {
+      font-size: 1.85rem;
+      font-weight: 900;
+      color: #fff;
+      margin: 0.5rem 0 0.25rem 0;
+      font-feature-settings: "tnum";
+    }
+
+    .kpi-subtext {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .kpi-subtext strong {
+      color: var(--text-main);
+    }
+
+    /* Workstation Navigation Modules */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .module-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.25rem;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .module-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-blue);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .module-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.1rem;
+    }
+
+    .module-icon-box {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .module-icon-register { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; }
+    .module-icon-intake { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; }
+    .module-icon-database { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #fff; }
+    .module-icon-pricing { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: #fff; }
+    .module-icon-settings { background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: #fff; }
+
+    .module-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 0.3rem;
+    }
+
+    .module-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .module-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+    }
+
+    .module-card:hover .module-footer {
+      color: #60a5fa;
+    }
+
+    .arrow-indicator {
+      transition: transform 0.2s ease;
+    }
+
+    .module-card:hover .arrow-indicator {
+      transform: translateX(4px);
+    }
+
+    /* System Status Bar */
+    .status-bar {
+      background: #101725;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-weight: 600;
+    }
+
+    .status-dot-green {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation (Zero Dead-End Standard) -->
+  <header class="tcg-navbar">
+    <div class="tcg-nav-brand">
+      <span class="tcg-brand-badge">TCG POS</span>
+      <h1 class="tcg-nav-title">🃏 TCG Workstation Command Center</h1>
+    </div>
+    <div class="tcg-nav-actions">
+      <!-- Quick link to database -->
+      <a href="/tcg/database" class="btn-nav-action" title="Card Database Explorer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+        </svg>
+        <span>Database Explorer</span>
+      </a>
+
+      <!-- Quick link to settings -->
+      <a href="/tcg/settings" class="btn-nav-action" title="Configuration & Rules">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Settings</span>
+      </a>
+
+      <!-- Return to Core Dashboard Action -->
+      <a href="/" class="btn-nav-action primary" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Workstation Layout -->
+  <main class="hub-container">
+
+    <!-- KPI Summary Row -->
+    <section class="kpi-row">
+
+      <!-- Total Singles -->
+      <div class="kpi-card blue">
+        <div class="kpi-label">
+          <span>📦 Total Singles in Inventory</span>
+        </div>
+        <div class="kpi-value" id="kpiTotalUnits">
+          {{ stats.get('total_units', 0) }} <span style="font-size: 1rem; color: var(--text-muted); font-weight: 500;">cards</span>
+        </div>
+        <div class="kpi-subtext">
+          <span><strong>{{ stats.get('total_items', 0) }}</strong> distinct catalog SKUs across MTG &amp; Pokémon</span>
+        </div>
+      </div>
+
+      <!-- Inventory Valuation -->
+      <div class="kpi-card green">
+        <div class="kpi-label">
+          <span>💰 Total Inventory Valuation</span>
+        </div>
+        <div class="kpi-value" id="kpiTotalValuation">
+          ${{ "%.2f"|format(stats.get('total_sell_valuation', 0.0)) }}
+        </div>
+        <div class="kpi-subtext">
+          <span>Cost Basis: <strong>${{ "%.2f"|format(stats.get('total_cost_basis', 0.0)) }}</strong> &bull; Margin: <strong style="color: var(--accent-green);">+${{ "%.2f"|format(stats.get('potential_margin', 0.0)) }}</strong></span>
+        </div>
+      </div>
+
+      <!-- Today's Trade-In Volume -->
+      <div class="kpi-card amber">
+        <div class="kpi-label">
+          <span>🔄 Today's Trade-In Volume</span>
+        </div>
+        <div class="kpi-value" id="kpiTodayTrades">
+          {{ stats.get('today_trade_units', 0) }} <span style="font-size: 1rem; color: var(--text-muted); font-weight: 500;">traded</span>
+        </div>
+        <div class="kpi-subtext">
+          <span>Acquisition Cost: <strong>${{ "%.2f"|format(stats.get('today_trade_volume', 0.0)) }}</strong> disbursed today</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Workstation Modules Grid -->
+    <section>
+      <div class="section-header">
+        <h2 class="section-title">🚀 Operational Workstations</h2>
+        <span style="font-size: 0.8rem; color: var(--text-dim); font-weight: 600;">Platform Target: v1.0.1 Native</span>
+      </div>
+
+      <div class="modules-grid" style="margin-top: 1.25rem;">
+
+        <!-- 1. Register Checkout -->
+        <a href="/tcg/register" class="module-card" id="card-register">
+          <div class="module-header">
+            <div class="module-icon-box module-icon-register">🛒</div>
+            <div>
+              <h3 class="module-title">Register Checkout</h3>
+              <p class="module-desc">Zero-lag NFC and barcode single-scanning terminal with live CFD and thermal receipt dispatch.</p>
+            </div>
+          </div>
+          <div class="module-footer">
+            <span>Launch Register Terminal</span>
+            <span class="arrow-indicator">&rarr;</span>
+          </div>
+        </a>
+
+        <!-- 2. Card Intake & Buylist -->
+        <a href="/tcg/intake" class="module-card" id="card-intake">
+          <div class="module-header">
+            <div class="module-icon-box module-icon-intake">📥</div>
+            <div>
+              <h3 class="module-title">Card Intake &amp; Buylist</h3>
+              <p class="module-desc">Rapid customer card acquisition, condition evaluation curves, and instant cash / credit payouts.</p>
+            </div>
+          </div>
+          <div class="module-footer">
+            <span>Open Intake Workstation</span>
+            <span class="arrow-indicator">&rarr;</span>
+          </div>
+        </a>
+
+        <!-- 3. Card Database Explorer -->
+        <a href="/tcg/database" class="module-card" id="card-database">
+          <div class="module-header">
+            <div class="module-icon-box module-icon-database">🗄️</div>
+            <div>
+              <h3 class="module-title">Card Database Explorer</h3>
+              <p class="module-desc">Full catalog browser with live stock filtering, inline price adjustments, and batch label printing.</p>
+            </div>
+          </div>
+          <div class="module-footer">
+            <span>Browse Card Database</span>
+            <span class="arrow-indicator">&rarr;</span>
+          </div>
+        </a>
+
+        <!-- 4. Market Pricing Engine -->
+        <a href="/tcg/pricing" class="module-card" id="card-pricing">
+          <div class="module-header">
+            <div class="module-icon-box module-icon-pricing">📈</div>
+            <div>
+              <h3 class="module-title">Market Pricing Engine</h3>
+              <p class="module-desc">Automated Scryfall &amp; TCGdex sync, volatility drift alerts, and one-click catalog re-pricing.</p>
+            </div>
+          </div>
+          <div class="module-footer">
+            <span>Open Pricing Engine</span>
+            <span class="arrow-indicator">&rarr;</span>
+          </div>
+        </a>
+
+        <!-- 5. Configuration & Settings -->
+        <a href="/tcg/settings" class="module-card" id="card-settings">
+          <div class="module-header">
+            <div class="module-icon-box module-icon-settings">⚙️</div>
+            <div>
+              <h3 class="module-title">Addon Configuration</h3>
+              <p class="module-desc">Custom trade-in margins, condition multipliers, background refresh timers, and thumbnail healing.</p>
+            </div>
+          </div>
+          <div class="module-footer">
+            <span>Open Settings Panel</span>
+            <span class="arrow-indicator">&rarr;</span>
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- Operational Status Bar -->
+    <section class="status-bar">
+      <div class="status-pill">
+        <span class="status-dot-green"></span>
+        <span>OpenPOS-TCG Engine v1.0.1 Active</span>
+      </div>
+      <div>
+        <span>Low Stock Alert: <strong style="color: #fbbf24;">{{ stats.get('low_stock_count', 0) }}</strong> cards &bull; Out of Stock: <strong style="color: #f87171;">{{ stats.get('out_of_stock_count', 0) }}</strong></span>
+      </div>
+      <div style="font-family: monospace; font-size: 0.75rem; color: var(--text-dim);">
+        SQLite / PostgreSQL Multi-Dialect Active
+      </div>
+    </section>
+
+  </main>
+
+</body>
+</html>

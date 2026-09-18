@@ -83,10 +83,11 @@ def test_buylist_calculate_endpoint(test_app_and_db):
     """3. Verify POST /tcg/api/buylist/calculate evaluates card pricing for an arbitrary condition."""
     client, _ = test_app_and_db
 
+    # Under v1.0.1 donor defaults (60% cash, 80% store credit):
     # Test: $20.00 market price, LP condition (0.85 multiplier)
     # Adjusted value: $17.00
-    # Expected Cash: $17.00 * 0.50 = $8.50
-    # Expected Credit: $8.50 * 1.30 = $11.05
+    # Expected Cash: $17.00 * 0.60 = $10.20
+    # Expected Credit: $17.00 * 0.80 = $13.60
     payload = {
         "market_price": 20.00,
         "condition": "LP",
@@ -99,8 +100,8 @@ def test_buylist_calculate_endpoint(test_app_and_db):
 
     data = resp.get_json()
     assert data["success"] is True
-    assert data["cash_offer"] == 8.50, f"Expected 8.50 cash, got {data['cash_offer']}"
-    assert data["credit_offer"] == 11.05, f"Expected 11.05 credit, got {data['credit_offer']}"
+    assert data["cash_offer"] == 10.20, f"Expected 10.20 cash, got {data['cash_offer']}"
+    assert data["credit_offer"] == 13.60, f"Expected 13.60 credit, got {data['credit_offer']}"
     assert data["offer"]["condition_multiplier"] == 0.85
 
 

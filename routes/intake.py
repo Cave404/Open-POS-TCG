@@ -55,14 +55,8 @@ def get_provider_for_game(game: str):
 
 
 def get_buylist_calculator() -> BuylistCalculator:
-    """Lazy-initializes and returns the shared BuylistCalculator instance."""
-    global _buylist_calculator
-    if _buylist_calculator is None:
-        _buylist_calculator = BuylistCalculator(
-            default_cash_percentage=0.50,
-            credit_bonus_percentage=0.30
-        )
-    return _buylist_calculator
+    """Initializes and returns a dynamic BuylistCalculator reflecting active store settings."""
+    return BuylistCalculator()
 
 
 def _resolve_session() -> Session:

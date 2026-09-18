@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCG POS - Settings &amp; Configuration</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-app: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-header: #182234;
+      --bg-input: #0b1120;
+      --border-color: #334155;
+      --border-focus: #3b82f6;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --accent-green: #10b981;
+      --accent-green-hover: #059669;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-purple: #8b5cf6;
+
+      --cond-nm: #10b981;
+      --cond-lp: #3b82f6;
+      --cond-mp: #f59e0b;
+      --cond-hp: #f97316;
+      --cond-dmg: #ef4444;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.35);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.45);
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Standard OpenPOS Header */
+    .tcg-navbar {
+      background-color: #111827;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.85rem 1.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-md);
+    }
+
+    .tcg-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .tcg-brand-badge {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #000;
+      font-size: 0.75rem;
+      font-weight: 900;
+      padding: 0.3rem 0.6rem;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .tcg-nav-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .tcg-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn-nav-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #1e293b;
+      color: var(--text-main);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.45rem 0.9rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .btn-nav-action:hover {
+      background: #334155;
+      border-color: #475569;
+      color: #fff;
+    }
+
+    .btn-nav-action.primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border-color: #2563eb;
+      color: #fff;
+    }
+
+    .btn-nav-action.primary:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+
+    /* Main Container */
+    .settings-container {
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 1.5rem 3rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+      width: 100%;
+    }
+
+    .page-intro {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .page-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Card Panels */
+    .settings-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+
+    .settings-card-header {
+      background: var(--bg-card-header);
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .settings-card-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .settings-card-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Form Grids */
+    .form-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .form-grid-5 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .field-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .field-hint {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .input-suffix-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-control {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.55rem 0.85rem;
+      transition: all 0.15s ease;
+    }
+
+    .input-control:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .input-suffix {
+      position: absolute;
+      right: 0.85rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+
+    /* Condition Badge Inputs */
+    .condition-input-card {
+      background: #111827;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      align-items: stretch;
+    }
+
+    .condition-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cond-badge {
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      color: #fff;
+    }
+    .cond-badge.nm { background: var(--cond-nm); color: #000; }
+    .cond-badge.lp { background: var(--cond-lp); color: #fff; }
+    .cond-badge.mp { background: var(--cond-mp); color: #000; }
+    .cond-badge.hp { background: var(--cond-hp); color: #fff; }
+    .cond-badge.dmg { background: var(--cond-dmg); color: #fff; }
+
+    .cond-name {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    /* Checkbox & Switch Rules */
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      cursor: pointer;
+    }
+
+    .checkbox-custom {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-blue);
+      cursor: pointer;
+    }
+
+    .checkbox-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+
+    .checkbox-subtext {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-left: 2rem;
+    }
+
+    /* Image Maintenance Box */
+    .image-heal-box {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .heal-terminal {
+      background: #0b1120;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: #38bdf8;
+      max-height: 140px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    /* Action Footer */
+    .settings-footer {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .btn-save {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.65rem 1.6rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-save:hover {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      transform: translateY(-1px);
+    }
+
+    .btn-reset {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.65rem 1.25rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-reset:hover {
+      background: #334155;
+      color: #fff;
+    }
+
+    /* Toast Notification */
+    #toastContainer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast-pill {
+      min-width: 280px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.88rem;
+      box-shadow: var(--shadow-lg);
+      transform: translateX(120%);
+      transition: transform 0.25s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .toast-pill.show { transform: translateX(0); }
+    .toast-success { background: #059669; border-left: 5px solid #34d399; }
+    .toast-error { background: #dc2626; border-left: 5px solid #f87171; }
+    .toast-info { background: #0284c7; border-left: 5px solid #38bdf8; }
+  </style>
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer"></div>
+
+  <!-- OpenPOS Standard Navigation Bar (Zero Dead-End Navigation) -->
+  <header class="tcg-navbar">
+    <div class="tcg-nav-brand">
+      <span class="tcg-brand-badge">TCG POS</span>
+      <h1 class="tcg-nav-title">TCG POS - Configuration &amp; Settings</h1>
+    </div>
+    <div class="tcg-nav-actions">
+      <!-- Back to Workstation Hub -->
+      <a href="/tcg" class="btn-nav-action" id="nav-workstation" title="Back to TCG Workstation">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Back to TCG Workstation</span>
+      </a>
+
+      <!-- Return to Core Dashboard Action -->
+      <a href="/" class="btn-nav-action primary" id="nav-return-dashboard" title="Return to OpenPOS Core Dashboard">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>Return to Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Workstation Layout -->
+  <main class="settings-container">
+
+    <div class="page-intro">
+      <div>
+        <h2 class="page-title">⚙️ Addon Rules &amp; Operational Controls</h2>
+        <p class="page-desc">Configure customer buy margins, grading condition adjustments, and hardware peripherals.</p>
+      </div>
+      <div>
+        <span class="btn-nav-action" style="pointer-events: none; background: #111827; border-color: #334155;">
+          Version: <strong style="color: #38bdf8; margin-left: 4px;">1.0.1</strong>
+        </span>
+      </div>
+    </div>
+
+    <!-- Section 1: Trade-In & Buylist Rules Card -->
+    <section class="settings-card">
+      <div class="settings-card-header">
+        <div class="settings-card-title">
+          <span>💼 Trade-In &amp; Buylist Rules</span>
+        </div>
+        <span class="field-hint">Defines customer cash and store credit valuation curves</span>
+      </div>
+      <div class="settings-card-body">
+        <div class="form-grid-3">
+
+          <div class="field-group">
+            <label class="field-label" for="cash_payout_rate">
+              <span>Cash Payout Rate</span>
+              <span class="field-hint">Default: 60.0%</span>
+            </label>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="cash_payout_rate" 
+                class="input-control" 
+                step="0.5" 
+                min="1" 
+                max="100" 
+                value="{{ settings.get('cash_payout_rate', 60.0) }}" 
+              />
+              <span class="input-suffix">%</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="store_credit_payout_rate">
+              <span>Store Credit Payout Rate</span>
+              <span class="field-hint">Default: 80.0%</span>
+            </label>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="store_credit_payout_rate" 
+                class="input-control" 
+                step="0.5" 
+                min="1" 
+                max="100" 
+                value="{{ settings.get('store_credit_payout_rate', 80.0) }}" 
+              />
+              <span class="input-suffix">%</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="daily_trade_limit">
+              <span>Daily Customer Trade Limit</span>
+              <span class="field-hint">Default: 10 cards</span>
+            </label>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="daily_trade_limit" 
+                class="input-control" 
+                step="1" 
+                min="1" 
+                max="500" 
+                value="{{ settings.get('daily_trade_limit', 10) }}" 
+              />
+              <span class="input-suffix">cards</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Condition Multipliers Card -->
+    {% set conds = settings.get('condition_multipliers', {}) %}
+    <section class="settings-card">
+      <div class="settings-card-header">
+        <div class="settings-card-title">
+          <span>🔍 Condition Multipliers</span>
+        </div>
+        <span class="field-hint">Applied against base market price during customer intake</span>
+      </div>
+      <div class="settings-card-body">
+        <div class="form-grid-5">
+
+          <div class="condition-input-card">
+            <div class="condition-header">
+              <span class="cond-badge nm">NM</span>
+              <span class="cond-name">Near Mint</span>
+            </div>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="cond_NM" 
+                class="input-control" 
+                step="0.05" 
+                min="0.1" 
+                max="2.0" 
+                value="{{ conds.get('NM', 1.0) }}" 
+              />
+              <span class="input-suffix">&times;</span>
+            </div>
+          </div>
+
+          <div class="condition-input-card">
+            <div class="condition-header">
+              <span class="cond-badge lp">LP</span>
+              <span class="cond-name">Lightly Played</span>
+            </div>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="cond_LP" 
+                class="input-control" 
+                step="0.05" 
+                min="0.1" 
+                max="2.0" 
+                value="{{ conds.get('LP', 0.85) }}" 
+              />
+              <span class="input-suffix">&times;</span>
+            </div>
+          </div>
+
+          <div class="condition-input-card">
+            <div class="condition-header">
+              <span class="cond-badge mp">MP</span>
+              <span class="cond-name">Mod. Played</span>
+            </div>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="cond_MP" 
+                class="input-control" 
+                step="0.05" 
+                min="0.1" 
+                max="2.0" 
+                value="{{ conds.get('MP', 0.70) }}" 
+              />
+              <span class="input-suffix">&times;</span>
+            </div>
+          </div>
+
+          <div class="condition-input-card">
+            <div class="condition-header">
+              <span class="cond-badge hp">HP</span>
+              <span class="cond-name">Heavily Played</span>
+            </div>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="cond_HP" 
+                class="input-control" 
+                step="0.05" 
+                min="0.1" 
+                max="2.0" 
+                value="{{ conds.get('HP', 0.50) }}" 
+              />
+              <span class="input-suffix">&times;</span>
+            </div>
+          </div>
+
+          <div class="condition-input-card">
+            <div class="condition-header">
+              <span class="cond-badge dmg">DMG</span>
+              <span class="cond-name">Damaged</span>
+            </div>
+            <div class="input-suffix-wrapper">
+              <input 
+                type="number" 
+                id="cond_DMG" 
+                class="input-control" 
+                step="0.05" 
+                min="0.05" 
+                max="2.0" 
+                value="{{ conds.get('DMG', 0.30) }}" 
+              />
+              <span class="input-suffix">&times;</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Pricing & Automation Rules -->
+    <section class="settings-card">
+      <div class="settings-card-header">
+        <div class="settings-card-title">
+          <span>⚡ Pricing &amp; Peripheral Automation</span>
+        </div>
+        <span class="field-hint">Synchronizations and hardware triggers</span>
+      </div>
+      <div class="settings-card-body">
+        <div class="form-grid-3">
+          
+          <div class="field-group">
+            <label class="field-label" for="market_refresh_days">
+              <span>Market Price Refresh Interval</span>
+              <span class="field-hint">Automated background sync</span>
+            </label>
+            <select id="market_refresh_days" class="input-control">
+              <option value="1" {% if settings.get('market_refresh_days', 1) == 1 %}selected{% endif %}>Every 1 Day (Daily)</option>
+              <option value="3" {% if settings.get('market_refresh_days', 1) == 3 %}selected{% endif %}>Every 3 Days</option>
+              <option value="7" {% if settings.get('market_refresh_days', 1) == 7 %}selected{% endif %}>Every 7 Days (Weekly)</option>
+              <option value="0" {% if settings.get('market_refresh_days', 1) == 0 %}selected{% endif %}>Manual only (No background sync)</option>
+            </select>
+          </div>
+
+          <div class="field-group" style="justify-content: center;">
+            <label class="checkbox-row" for="enable_cash_drawer">
+              <input 
+                type="checkbox" 
+                id="enable_cash_drawer" 
+                class="checkbox-custom" 
+                {% if settings.get('enable_cash_drawer') %}checked{% endif %} 
+              />
+              <span class="checkbox-label">Kick Cash Drawer on Cash Payout</span>
+            </label>
+            <span class="checkbox-subtext">Sends ESC/POS pulse to drawer on buylist cash disbursement</span>
+          </div>
+
+          <div class="field-group" style="justify-content: center;">
+            <label class="checkbox-row" for="enable_receipt_printer">
+              <input 
+                type="checkbox" 
+                id="enable_receipt_printer" 
+                class="checkbox-custom" 
+                {% if settings.get('enable_receipt_printer', True) %}checked{% endif %} 
+              />
+              <span class="checkbox-label">Auto-Spool Trade-In Receipts</span>
+            </label>
+            <span class="checkbox-subtext">Prints customer intake voucher on thermal receipt printer</span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Media & Image Maintenance -->
+    <section class="settings-card">
+      <div class="settings-card-header">
+        <div class="settings-card-title">
+          <span>🖼️ Media &amp; Image Maintenance</span>
+        </div>
+        <span id="healingStatusBadge" class="btn-nav-action" style="font-size: 0.75rem; pointer-events: none; background: #111827;">
+          Idle
+        </span>
+      </div>
+      <div class="settings-card-body image-heal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+          <div>
+            <div style="font-weight: 700; font-size: 0.92rem; color: var(--text-main);">Image Healing Tool</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+              Scans in-stock cards to detect missing or 0-byte thumbnails in <code style="color: #38bdf8;">data/cache/tcg_art/</code> and re-caches them directly from Scryfall and TCGdex CDNs.
+            </div>
+          </div>
+          <button type="button" id="btnFixThumbnails" class="btn-nav-action primary" onclick="triggerThumbnailHealing()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Verify &amp; Fix Missing Thumbnails</span>
+          </button>
+        </div>
+
+        <div id="healingTerminalLog" class="heal-terminal">
+          <div>[SYSTEM] Ready for image maintenance scan.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action Footer -->
+    <div class="settings-footer">
+      <button type="button" id="btnResetDefaults" class="btn-reset" onclick="resetDefaults()">
+        Reset to Defaults
+      </button>
+      <button type="button" id="btnSaveSettings" class="btn-save" onclick="saveSettings()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        <span>Save Settings</span>
+      </button>
+    </div>
+
+  </main>
+
+  <script>
+    // --- Toast Notification System ---
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast-pill toast-${type}`;
+      toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '⚠' : 'ℹ'}</span><span>${message}</span>`;
+      container.appendChild(toast);
+      
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // --- Save Settings Payload ---
+    async function saveSettings() {
+      const payload = {
+        cash_payout_rate: parseFloat(document.getElementById('cash_payout_rate').value) || 60.0,
+        store_credit_payout_rate: parseFloat(document.getElementById('store_credit_payout_rate').value) || 80.0,
+        daily_trade_limit: parseInt(document.getElementById('daily_trade_limit').value) || 10,
+        condition_multipliers: {
+          NM: parseFloat(document.getElementById('cond_NM').value) || 1.0,
+          LP: parseFloat(document.getElementById('cond_LP').value) || 0.85,
+          MP: parseFloat(document.getElementById('cond_MP').value) || 0.70,
+          HP: parseFloat(document.getElementById('cond_HP').value) || 0.50,
+          DMG: parseFloat(document.getElementById('cond_DMG').value) || 0.30,
+        },
+        market_refresh_days: parseInt(document.getElementById('market_refresh_days').value) || 1,
+        enable_cash_drawer: document.getElementById('enable_cash_drawer').checked,
+        enable_receipt_printer: document.getElementById('enable_receipt_printer').checked,
+      };
+
+      const btn = document.getElementById('btnSaveSettings');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>Saving...</span>';
+
+      try {
+        const resp = await fetch('/tcg/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast(data.message || 'Settings saved successfully!', 'success');
+        } else {
+          showToast(data.error || 'Failed to save settings.', 'error');
+        }
+      } catch (err) {
+        showToast('Network error while saving settings: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+
+    // --- Reset Defaults ---
+    async function resetDefaults() {
+      if (!confirm("Are you sure you want to reset all trade-in and condition settings to standard defaults?")) {
+        return;
+      }
+      try {
+        const resp = await fetch('/tcg/api/settings/reset', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success && data.settings) {
+          const s = data.settings;
+          document.getElementById('cash_payout_rate').value = s.cash_payout_rate;
+          document.getElementById('store_credit_payout_rate').value = s.store_credit_payout_rate;
+          document.getElementById('daily_trade_limit').value = s.daily_trade_limit;
+          document.getElementById('market_refresh_days').value = s.market_refresh_days;
+          document.getElementById('enable_cash_drawer').checked = s.enable_cash_drawer;
+          document.getElementById('enable_receipt_printer').checked = s.enable_receipt_printer;
+
+          const cm = s.condition_multipliers || {};
+          if (cm.NM) document.getElementById('cond_NM').value = cm.NM;
+          if (cm.LP) document.getElementById('cond_LP').value = cm.LP;
+          if (cm.MP) document.getElementById('cond_MP').value = cm.MP;
+          if (cm.HP) document.getElementById('cond_HP').value = cm.HP;
+          if (cm.DMG) document.getElementById('cond_DMG').value = cm.DMG;
+
+          showToast("Settings reset to defaults.", "info");
+        }
+      } catch (err) {
+        showToast("Error resetting settings: " + err.message, "error");
+      }
+    }
+
+    // --- Image Healing Tool ---
+    let healingPollTimer = null;
+
+    async function triggerThumbnailHealing() {
+      const btn = document.getElementById('btnFixThumbnails');
+      btn.disabled = true;
+      btn.innerHTML = '<span>Scanning disk cache...</span>';
+
+      try {
+        const resp = await fetch('/tcg/api/maintenance/fix-thumbnails', { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.success) {
+          showToast(`Scanning complete: ${data.queued_count} image(s) queued for re-caching.`, 'info');
+          pollHealingStatus();
+        } else {
+          showToast(data.error || 'Failed to start image healing.', 'error');
+          btn.disabled = false;
+          btn.innerHTML = '<span>Verify &amp; Fix Missing Thumbnails</span>';
+        }
+      } catch (err) {
+        showToast('Error starting thumbnail fix: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<span>Verify &amp; Fix Missing Thumbnails</span>';
+      }
+    }
+
+    async function pollHealingStatus() {
+      if (healingPollTimer) clearInterval(healingPollTimer);
+      
+      healingPollTimer = setInterval(async () => {
+        try {
+          const resp = await fetch('/tcg/api/maintenance/thumbnails-status');
+          const data = await resp.json();
+          if (data.success && data.status) {
+            const st = data.status;
+            const badge = document.getElementById('healingStatusBadge');
+            const logBox = document.getElementById('healingTerminalLog');
+
+            if (st.running) {
+              badge.textContent = `Healing: ${st.processed}/${st.total}`;
+              badge.style.color = '#38bdf8';
+            } else {
+              badge.textContent = st.total > 0 ? `Finished (${st.fixed} fixed)` : 'Idle';
+              badge.style.color = '#34d399';
+              clearInterval(healingPollTimer);
+              const btn = document.getElementById('btnFixThumbnails');
+              btn.disabled = false;
+              btn.innerHTML = '<span>Verify &amp; Fix Missing Thumbnails</span>';
+            }
+
+            if (st.logs && st.logs.length > 0) {
+              logBox.innerHTML = st.logs.map(l => `<div>${l}</div>`).join('');
+              logBox.scrollTop = logBox.scrollHeight;
+            }
+          }
+        } catch (e) {
+          console.error("Poll error:", e);
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>
